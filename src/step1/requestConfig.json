@@ -1,0 +1,5 @@
+{
+    "url_request_motif_part1": "https://www.ebi.ac.uk/chebi/backend/api/public/es_search/?term=",
+    "url_request_motif_part2": "&page=1&size=15",
+    "url_request_id": "https://www.ebi.ac.uk/chebi/backend/api/public/molfile/"
+}
