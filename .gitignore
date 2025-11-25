@@ -1,5 +1,6 @@
 # Ignorer le dossier molfiles
-/molfiles/
+src/molfiles/*
+*.mol
 
 # Artefacts Python
 __pycache__/
