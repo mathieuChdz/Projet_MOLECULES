@@ -1,0 +1,26 @@
+# Ignorer le dossier molfiles
+/molfiles/
+
+# Artefacts Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environnements virtuels
+venv/
+.env/
+.venv/
+env/
+ENV/
+
+# Distributions / build
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Tests / coverage
+.pytest_cache/
+.coverage
+htmlcov/
