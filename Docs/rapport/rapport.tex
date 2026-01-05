@@ -1,0 +1,46 @@
+% !TEX root = research.tex
+% research.tex -- structure de base pour un article/rapport en LaTeX (français)
+\documentclass[11pt,a4paper]{article}
+
+% Encodage et langue
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+
+% Paquets utiles
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{csquotes}
+\usepackage[backend=biber,style=numeric,sorting=nyt]{biblatex}
+\addbibresource{references.bib} % fichier .bib à créer
+
+% Métadonnées
+\title{Projet molécule}
+\author{Groupe A}
+\date{2025 - 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+L'objectif de ce rapport est de présenter les différentes étapes du projet qui vise à étudier la similarité entre deux molécules.
+\end{abstract}
+
+\tableofcontents
+\clearpage
+
+\section{Introduction}
+Présentation du problème et objectifs.
+
+\section{Étape 1 : récupération des données}
+
+
+
+\printbibliography
+
+\end{document}
