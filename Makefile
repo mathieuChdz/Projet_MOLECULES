@@ -11,7 +11,7 @@ check_iso: check_iso.c
  
 run: check_iso
 	python main.py "$(URL)"
-	explorer.exe resultats.html
+	explorer.exe resultats.html || true
 
 clean:
 	rm -f check_iso.exe $(REPORT)
