@@ -76,15 +76,58 @@ def find_isomorphs():
     return [mols for mols in signatures.values() if len(mols) > 1]
 
 def generate_report(groups):
-    html = "<html><body style='font-family:sans-serif;'><h1>Rapport d'isomorphisme</h1>"
-    if not groups:
-        html += "<p>Aucun doublon structurel détecté.</p>"
-    else:
-        for grp in groups:
-            html += "<div style='border:1px solid #ccc; margin:10px; padding:10px;'>"
-            html += "<strong>Groupe identique :</strong> " + " == ".join(grp)
+    now = time.strftime("%d/%m/%Y %H:%M:%S")
+    
+    # Début du HTML avec un CSS plus moderne
+    html = f"""
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 900px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }}
+            h1 {{ color: #2c3e50; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; }}
+            .summary {{ background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }}
+            .group-card {{ background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px; border-left: 5px solid #3498db; }}
+            .mol-link {{ display: inline-block; background: #eef2f7; padding: 5px 10px; border-radius: 4px; margin: 5px; color: #2980b9; text-decoration: none; font-weight: bold; border: 1px solid #dcdfe6; }}
+            .mol-link:hover {{ background: #3498db; color: #fff; }}
+            .footer {{ font-size: 0.8em; color: #7f8c8d; margin-top: 40px; text-align: center; }}
+            .no-dup {{ color: #27ae60; font-weight: bold; }}
+        </style>
+    </head>
+    <body>
+        <h1>Rapport d'isomorphisme moléculaire</h1>
+        <div class="summary">
+            <p><strong>Date d'analyse :</strong> {now}</p>
+            <p><strong>Résultat :</strong> {f'<span class="no-dup">Aucun doublon structurel détecté.</span>' if not groups else f'<b>{len(groups)}</b> groupe(s) de doublons identifié(s).'}</p>
+        </div>
+    """
+
+    if groups:
+        for i, grp in enumerate(groups):
+            html += f'<div class="group-card"><strong>Groupe {i+1} (Molécules identiques) :</strong><br><br>'
+            for mol_name in grp:
+                # On essaie d'extraire l'ID ChEBI du nom du fichier s'il existe
+                # Rappel : nom formaté comme "mol_0_Nom_CHEBI_12345"
+                chebi_url = "#"
+                display_name = mol_name
+                
+                if "CHEBI" in mol_name.upper():
+                    # On extrait juste la partie CHEBI_XXXX
+                    parts = mol_name.split('_')
+                    for p in parts:
+                        if p.upper().startswith("CHEBI"):
+                            chebi_url = f"https://www.ebi.ac.uk/chebi/searchId.do?chebiId={p}"
+                            break
+                
+                html += f'<a href="{chebi_url}" target="_blank" class="mol-link" title="Voir sur ChEBI">📄 {display_name}</a>'
             html += "</div>"
-    html += "</body></html>"
+
+    html += f"""
+        <div class="footer">Généré par le projet M2 AMIS - Algorithme de McKay (Nauty)</div>
+    </body>
+    </html>
+    """
+
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
         f.write(html)
 
