@@ -1,0 +1,6 @@
+/nauty/*
+/Data/graphs/*
+/Data/molecules/*
+*.exe
+*.html
+*.sdf
