@@ -18,21 +18,38 @@ void print_signature(char* path) {
     DYNALLOC1(int, orbits, orbits_sz, n, "malloc");
     DYNALLOC2(graph, g, g_sz, n, SETWORDSNEEDED(n), "malloc");
 
-    options.getcanon = 1;
-    EMPTYGRAPH(g, SETWORDSNEEDED(n), n);
-
-    int idx, type;
+    int *colors = malloc(n * sizeof(int));
     for (int i = 0; i < n; i++) {
-        fscanf(f, "%d %d", &idx, &type);
-        lab[i] = i;
-        ptn[i] = 1; 
+        fscanf(f, "%d", &colors[i]);
     }
-    ptn[n-1] = 0;
+
+    int current_lab = 0;
+    int color_list[200];
+    int color_count = 0;
+
+    for (int c = 0; c < 255; c++) {
+        int found = 0;
+        for (int i = 0; i < n; i++) {
+            if (colors[i] == c) {
+                lab[current_lab] = i;
+                ptn[current_lab] = 1;
+                current_lab++;
+                found = 1;
+            }
+        }
+        if (found) ptn[current_lab - 1] = 0; // Fin d'un groupe de même couleur
+    }
+    free(colors);
+
+    options.getcanon = 1;
+    options.defaultptn = FALSE;
+    EMPTYGRAPH(g, SETWORDSNEEDED(n), n);
 
     int u, v;
     for (int i = 0; i < e; i++) {
-        fscanf(f, "%d %d", &u, &v);
-        ADDONEEDGE(g, u, v, SETWORDSNEEDED(n));
+        if (fscanf(f, "%d %d", &u, &v) == 2) {
+            ADDONEEDGE(g, u, v, SETWORDSNEEDED(n));
+        }
     }
     fclose(f);
 
