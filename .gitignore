@@ -51,3 +51,10 @@ Docs/rapport/*.snm
 Docs/rapport/*.vrb
 Docs/rapport/_minted*
 Docs/rapport/*.gz
+/nauty/*
+/Data/graphs/*
+/Data/molecules/*
+/Data/images/*
+*.exe
+*.html
+*.sdf
