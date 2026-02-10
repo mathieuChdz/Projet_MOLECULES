@@ -18,7 +18,6 @@ def ShapeTanimoto(m1, m2):
     mol2 = Chem.MolFromMolFile(m2)
 
     if mol1 is None or mol2 is None: return 0.0
-    return 0.0
 
     m1 = Chem.AddHs(mol1)
     m2 = Chem.AddHs(mol2)  
