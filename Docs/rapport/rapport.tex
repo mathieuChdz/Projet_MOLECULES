@@ -1,0 +1,196 @@
+% !TEX root = research.tex
+% research.tex -- structure de base pour un article/rapport en LaTeX (français)
+\documentclass[11pt,a4paper]{article}
+
+% Encodage et langue
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+
+% Paquets utiles
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{csquotes}
+\usepackage[backend=biber,style=numeric,sorting=nyt]{biblatex}
+\usepackage{pgfgantt}
+
+\usepackage{listings}
+\usepackage{xcolor}
+
+\lstdefinestyle{py}{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    stringstyle=\color{orange},
+    commentstyle=\color{green!60!black},
+breaklines=true 
+}
+\lstdefinestyle{json}{basicstyle=\ttfamily\small, stringstyle=\color{red}}
+
+\addbibresource{references.bib} % fichier .bib à créer
+
+% Métadonnées
+\title{Projet molécule}
+\author{Groupe A}
+\date{2025 - 2026}
+
+\begin{document}
+\setlength{\parskip}{0.3em} 
+
+\maketitle
+
+\begin{abstract}
+L'objectif de ce rapport est de présenter les différentes étapes du projet qui vise à étudier la similarité entre deux molécules.
+\end{abstract}
+
+\tableofcontents
+\clearpage
+
+\section{Introduction}
+L'objectif principal de ce projet est le développement d'un programme capable de déterminer la similarité entre deux molécules en utilisant l'algorithme de McKay.
+En effet, la similarité entre molécules est une notion cruciale en chimes, et qui n'est pas triviale à définir. Nous souhaitons donc implémenter une solution efficace pour comparer des structures moléculaires et qui pourra, dans le futur servir dans divers domaines.
+
+Dans un prmeier temps, nous allons nous concentrer sur la mise en place de l'algorithme de similarité, en utilisant des données moléculaires provenant de la base ChEBI.
+
+Ensuite nous allons étudier les notions de distance entre molécules et implémenter un algorithme de clustering pour regrouper les molécules similaires.
+
+Ce projet est à réaliser en groupe, ce qui porte une attention particulière à l'organisation et à la répartition des tâches entre les membres.
+
+\section{Organisation du groupe et planning des tâches}
+Le projet est un projet qui vise à mettre en avant le travail en équipe. Nous avons décidé de répartir les membres dans différentes tâches préalablement définies. Voici la répartition des tâches :
+
+
+
+\begin{figure}[h]
+\centering
+
+\begin{ganttchart}[y unit chart=0.8cm]{1}{21}
+
+\ganttset{
+  bar label font=\small,
+  bar label node/.append style={
+    text width=3.8cm
+  }
+}
+
+
+\gantttitle{Première partie / Cycle 1}{21} \\
+\gantttitlelist{1,...,7}{3} \\
+
+\ganttbar[bar/.style={fill=blue!70}]{Recherche sur le sujet}{1}{4} \\
+\ganttbar[bar/.style={fill=cyan!60}]{Technologies à utiliser}{2}{6} \\
+\ganttbar[bar/.style={fill=teal!60}]{Structure de données à utiliser}{5}{6} \\
+\ganttbar[bar/.style={fill=green!60}]{1.1.1 - Récupération des données}{6}{7} \\
+\ganttbar[bar/.style={fill=lime!60}]{1.1.2 - parser les données}{6}{10} \\
+\ganttbar[bar/.style={fill=yellow!60}]{1.1.3 - structure de données}{10}{11} \\
+\ganttbar[bar/.style={fill=orange!70}]{1.1.4 - Algo de McKay}{10}{17} \\
+\ganttbar[bar/.style={fill=red!60}]{1.1.5 - Intégration}{10}{17} \\
+\ganttbar[bar/.style={fill=purple!60}]{Rapport du cycle 1}{17}{21} 
+\end{ganttchart}
+
+\caption{Diagramme de Gantt — Cycle 1}
+\label{fig:gantt-cycle1}
+
+\end{figure}
+
+Cette répartition permet à chaque membre de se concentrer sur une ou plusieurs tâches spécifiques, en s'assurant que chaque étapes est respecté.
+Ce la permet aussi de fixer des objectif à court et moyen terme, au lieu de seulement voir la deadline finale.
+
+\vspace{4em}
+
+\section{Étape 1 : récupération des données}
+
+2 options ont été considérées pour la récupération des données moléculaires :
+
+\vspace{0.3em}
+
+\begin{itemize}[
+    leftmargin=0pt,
+    itemsep=0.6em,
+    topsep=0pt
+]
+    \item Récupération de plusieurs fichiers .mol via des requêtes HTTP vers l'API de ChEBI.
+    L'objectif ici est de demander les motifs ChEBI des molécules via CMD, et de stocker les fichiers récupérés dans un dossier local.
+    Les URL sont stockées dans un JSON pour faciliter la gestion des appels et l'entrée utilisateur.
+
+    Fichier JSON correspondant :
+    \begin{lstlisting}[style=json]
+{
+  "url_request_motif_part1": "https://www.ebi.ac.uk/chebi/backend/api/public/es_search/?term=",
+  "url_request_motif_part2": "&page=1&size=15",
+  "url_request_id": "https://www.ebi.ac.uk/chebi/backend/api/public/molfile/"
+}
+    \end{lstlisting}
+
+    On effectue une première requête avec les motifs et on récupère les ID des molécules demandées.
+    \begin{lstlisting}[style=py]
+        motif_id = data1["results"][0]["_id"]
+    \end{lstlisting}
+
+    Ensuite, pour cahque ID récupérés, on effecutue une seconde requete pour télécharger les .mol dans un dossier local.
+
+    \item On télécharge un SDF complet depuis ChEBI, qui contient toutes les molécules que l'utilisateur donne. L'avantage est que l'on fait une seule requête HTTP, mais le fichier peut être plus lourd à gérer.
+    Exemple d'une URL pour traiter 20 molécules :
+    \begin{lstlisting}[style=py, breaklines=true]
+url_sdf = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20/SDF"
+    \end{lstlisting}
+
+    Et on traite le fichier SDF pour extraire les molécules.
+\end{itemize}
+
+\vspace{2em}
+
+\section{Étape 2 : Parser les données}
+
+Pour ce qui est de parser les données, nous avons aussi exporer deux options :
+
+\vspace{0.3em}
+
+\begin{itemize}[
+    leftmargin=0pt,
+    itemsep=0.6em,
+    topsep=0pt
+]
+    \item Utilisation de RDKit, une bibliothèque Python spécialisée dans la chimie computationnelle. Ici on import Chem ce qui permet de lire les fichiers .mol et de manipuler les molécules très facilement.
+    On peut ainsi parcourir pour chaque fichier .mol les atomes et les liaisons.
+    \begin{lstlisting}[style=py]
+import sys
+from rdkit import Chem
+
+def export_to_graph(mol_path, out_path):
+    mol = Chem.MolFromMolFile(mol_path)
+    if not mol: return
+
+    atoms = mol.GetAtoms()
+    bonds = mol.GetBonds()
+
+    num_atoms = len(atoms)
+    num_bonds = len(bonds)
+    total_nodes = num_atoms + num_bonds
+
+    total_edges = num_bonds * 2 
+    \end{lstlisting}
+
+    On traite ensuite les atomes et les liaisons pour créer le fichier de sortie.
+    Le fichier de sortie est fichier .graph qui sera utilisé pour l'algorithme de McKay.
+    En effet, chaque atome et chaque liaison devient un nœud dans le graphe et correspond parfaitement avec ce que demande Nauty.
+
+    \item Écriture d'un parser personnalisé pour lire les fichiers .mol. Cette approche est plus complexe, mais elle permet une meilleure compréhension du format des fichiers .mol et nous permet de moduler le parser selon nos besoins spécifiques.
+    
+    --> A DEVELOPPER SI ON CHOISIT CETTE OPTION
+\end{itemize}
+
+\section{Étape 3 : Structure de données}
+
+\section{Étape 4 : Algorithme de McKay}
+
+\section{Étape 5 : Intégration}
+
+\printbibliography
+
+\end{document}

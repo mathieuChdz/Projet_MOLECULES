@@ -1,0 +1,60 @@
+# Ignorer le dossier molfiles
+src/molfiles/*
+*.mol
+
+# Artefacts Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environnements virtuels
+venv/
+.env/
+.venv/
+env/
+ENV/
+
+# Distributions / build
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Tests / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Ignorer les artéfacts générés par la compilation de Docs/rapport/rapport.tex
+Docs/rapport/*.aux
+Docs/rapport/*.bbl
+Docs/rapport/*.bcf
+Docs/rapport/*.bcf-*
+Docs/rapport/*.blg
+Docs/rapport/*.fdb_latexmk
+Docs/rapport/*.fls
+Docs/rapport/*.run.xml
+Docs/rapport/*.toc
+Docs/rapport/*.out
+Docs/rapport/*.log
+Docs/rapport/*.synctex.gz
+Docs/rapport/*.ps
+Docs/rapport/*.dvi
+Docs/rapport/*.lof
+Docs/rapport/*.lot
+Docs/rapport/*.idx
+Docs/rapport/*.ilg
+Docs/rapport/*.ind
+Docs/rapport/*.nav
+Docs/rapport/*.snm
+Docs/rapport/*.vrb
+Docs/rapport/_minted*
+Docs/rapport/*.gz
+/nauty/*
+/Data/graphs/*
+/Data/molecules/*
+/Data/images/*
+*.exe
+*.html
+*.sdf
