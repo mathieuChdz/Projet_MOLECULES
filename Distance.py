@@ -44,7 +44,7 @@ def ShapeTanimoto(m1, m2, n=20):
     for id1 in ids1:
         for id2 in ids2:
             #aligner leur strcture , m2 sur m1
-            rdMolAlign.AlignMol(m1, m2, prbId=id2, refId=id1)
+            rdMolAlign.AlignMol(m2, m1, prbCid=id2, refCid=id1)
             #distance volumique
             dist = rdShapeHelpers.ShapeTanimotoDist(m1, m2, confId1=id1, confId2=id2)
             sim=1 - dist
