@@ -9,8 +9,10 @@ def Tanimoto2D(m1, m2):
 
     if mol1 is None or mol2 is None: return 0.0
 
-    fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1, radius=2, nBits=2048)
-    fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2, radius=2, nBits=2048)
+    gen = AllChem.GetMorganGenerator(radius=2, fpSize=2048)
+
+    fp1 = gen.GetFingerprint(mol1)
+    fp2 = gen.GetFingerprint(mol2)
     return DataStructs.TanimotoSimilarity(fp1, fp2)
 
 def ShapeTanimoto(m1, m2, n=20):
@@ -29,7 +31,7 @@ def ShapeTanimoto(m1, m2, n=20):
     params = AllChem.ETKDGv3()
     #Generation de la structure 3D , n fois et on recupere les ids de chaque structure 3D generer pour les deux molecule
     ids1 = AllChem.EmbedMultipleConfs(m1, numConfs=n, params=params)
-    ids2 = AllChem.EmbedMultipleConfs(m2, numConfs=n)
+    ids2 = AllChem.EmbedMultipleConfs(m2, numConfs=n, params=params)
 
     if len(ids1) == 0 or len(ids2) == 0: return 0.0
 
@@ -43,8 +45,9 @@ def ShapeTanimoto(m1, m2, n=20):
     best_sim = 0.0
     for id1 in ids1:
         for id2 in ids2:
-            #aligner leur strcture , m2 sur m1
-            rdMolAlign.AlignMol(m2, m1, prbCid=id2, refCid=id1)
+            #aligner leur strcture , m2 sur m1 on utilise l'algorithme O3A pour aligner les deux molecule en utilisant les id
+            pyO3A = rdMolAlign.GetO3A(m2, m1, prbCid=id2, refCid=id1)
+            pyO3A.Align()
             #distance volumique
             dist = rdShapeHelpers.ShapeTanimotoDist(m1, m2, confId1=id1, confId2=id2)
             sim=1 - dist
