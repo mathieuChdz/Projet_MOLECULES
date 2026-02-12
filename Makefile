@@ -10,7 +10,7 @@ check_iso: check_iso.c
 	$(CC) $(CFLAGS) -o check_iso check_iso.c $(LDFLAGS)
  
 run: check_iso
-	python main.py "$(URL)"
+	./venv/bin/python3 main.py "$(URL)"
 	explorer.exe resultats.html || true
 
 clean:
