@@ -6,3 +6,7 @@
 *.exe
 *.html
 *.sdf
+.venv/
+src/molfiles/*
+src/step1/__pycache__/*
+Docs/rapport/*
