@@ -9,7 +9,7 @@ from rdkit import Chem
 from rdkit.Chem import Draw, AllChem
 
 import shutil
-from Distance import score
+from Distance import vecteur_fingerprint2D, score, genere_shape
 
 # Configuration
 NAUTY_DIR = "nauty2_9_3"
@@ -175,6 +175,8 @@ def compute_similarity_matrix(all_molecules):
         f"[*] Calcul des distances (Similarité 2D+3D) pour {len(all_molecules)} molécules...")
     matrix = {}
     n = len(all_molecules)
+    matrice_vecteur = [(vecteur_fingerprint2D(os.path.join(MOL_DIR, f"{
+        all_molecules[i]}.mol")), genere_shape(os.path.join(MOL_DIR, f"{all_molecules[i]}.mol"))) for i in range(n)]
 
     # Barre de progression simple
     total_ops = (n * (n + 1)) // 2
@@ -182,13 +184,14 @@ def compute_similarity_matrix(all_molecules):
 
     for i in range(n):
         name_i = all_molecules[i]
-        path_i = os.path.join(MOL_DIR, f"{name_i}.mol")
+        shape_i = matrice_vecteur[i][1]
+        vecteur_i = matrice_vecteur[i][0]
         matrix[name_i] = {}
 
         for j in range(n):
             name_j = all_molecules[j]
-            path_j = os.path.join(MOL_DIR, f"{name_j}.mol")
-
+            shape_j = matrice_vecteur[j][1]
+            vecteur_j = matrice_vecteur[j][0]
             if i == j:
                 matrix[name_i][name_j] = 1.0  # Identique à soi-même
             elif j < i:
@@ -198,7 +201,8 @@ def compute_similarity_matrix(all_molecules):
                 # Calcul réel via Distance.py
                 try:
                     # On appelle la fonction score importée
-                    val = score(path_i, path_j)
+                    val = score(vecteur_i, shape_i,
+                                vecteur_j, shape_j)
                     matrix[name_i][name_j] = val
                 except Exception as e:
                     print(f"Err {name_i}/{name_j}: {e}")

@@ -15,7 +15,7 @@ REPORT        = resultats.html
 ARCHIVE_NAME  = projet_code.zip
 SRC_FILES     = Main.py Check_iso.c Makefile
 
-.PHONY: all run clean zip
+.PHONY: run clean zip
 
 run: $(EXEC)
 	@if [ -z "$(URL)" ]; then echo "Usage: make run URL='http://...'"; exit 1; fi
@@ -24,15 +24,11 @@ run: $(EXEC)
 $(EXEC): $(SRC) $(NAUTY_LIB)
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(LDFLAGS)
 
-$(NAUTY_LIB): $(NAUTY_DIR)/makefile
+$(NAUTY_LIB):
 	@echo "--- Compilation de Nauty ---"
 	cd $(NAUTY_DIR) && $(MAKE)
-
-$(NAUTY_DIR)/makefile: $(NAUTY_DIR)/configure
 	@echo "--- Configuration de Nauty ---"
 	cd $(NAUTY_DIR) && ./configure
-
-$(NAUTY_DIR)/configure: $(NAUTY_ARCHIVE)
 	@echo "--- Extraction de Nauty ---"
 	rm -rf $(NAUTY_DIR)
 	tar xvzf $(NAUTY_ARCHIVE)
@@ -41,7 +37,7 @@ $(NAUTY_DIR)/configure: $(NAUTY_ARCHIVE)
 
 $(NAUTY_ARCHIVE):
 	@echo "--- Téléchargement ---"
-	$(PYTHON) -c "import urllib.request; urllib.request.urlretrieve('$(NAUTY_URL)', '$(NAUTY_ARCHIVE)')"
+	wget $(NAUTY_URL)
 
 zip:
 	rm -f $(EXEC) $(EXEC).exe $(REPORT)
