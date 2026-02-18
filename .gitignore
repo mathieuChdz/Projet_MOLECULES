@@ -56,7 +56,6 @@ Docs/rapport/*.gz
 /Data/molecules/*
 /Data/images/*
 *.exe
-*.html
 *.sdf
 .venv/
 src/molfiles/*
