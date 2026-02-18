@@ -9,10 +9,9 @@ def Tanimoto2D(m1, m2):
 
     if mol1 is None or mol2 is None: return 0.0
 
-    gen = AllChem.GetMorganGenerator(radius=2, fpSize=2048)
+    fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1, 2, nBits=2048)
+    fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2, 2, nBits=2048)
 
-    fp1 = gen.GetFingerprint(mol1)
-    fp2 = gen.GetFingerprint(mol2)
     return DataStructs.TanimotoSimilarity(fp1, fp2)
 
 def ShapeTanimoto(m1, m2, n=20):
@@ -30,6 +29,7 @@ def ShapeTanimoto(m1, m2, n=20):
     #algo de gen de structure 3D
     params = AllChem.ETKDGv3()
     #Generation de la structure 3D , n fois et on recupere les ids de chaque structure 3D generer pour les deux molecule
+    params.pruneRmsThresh = 0.3  # 0.3–1.0 typiquement
     ids1 = AllChem.EmbedMultipleConfs(m1, numConfs=n, params=params)
     ids2 = AllChem.EmbedMultipleConfs(m2, numConfs=n, params=params)
 
@@ -40,7 +40,20 @@ def ShapeTanimoto(m1, m2, n=20):
         AllChem.UFFOptimizeMolecule(m1, confId=id)
     for id in ids2:
         AllChem.UFFOptimizeMolecule(m2, confId=id)
+
     
+    #ON PEUT UTILISER CETTE STRATEGIE POUR AVOIR UNE COMPLEXITE EN TEMPS CONSTANTE AU LIEU DE N^2 EN GARDANT SEULEMENT LES K MEILLEURS CONFORMERES (basé sur les énergies).
+    # nb_conf_keep = 6
+
+    # # Optimisation batch + énergies
+    # res1 = AllChem.UFFOptimizeMoleculeConfs(m1, numThreads=0)
+    # res2 = AllChem.UFFOptimizeMoleculeConfs(m2, numThreads=0)
+
+    # # Garder les k conformères les plus bas énergie
+    # ids1 = sorted(ids1, key=lambda cid: res1[cid][1])[:min(nb_conf_keep, len(ids1))]
+    # ids2 = sorted(ids2, key=lambda cid: res2[cid][1])[:min(nb_conf_keep, len(ids2))]
+
+    print("nb conforeres au total : ", len(ids1), len(ids2), "total : ", len(ids1)*len(ids2))
 
     best_sim = 0.0
     for id1 in ids1:

@@ -81,7 +81,7 @@ def process_conversions():
                 input_p = os.path.join(MOL_DIR, f)
                 output_p = os.path.join(GRAPH_DIR, f.replace(".mol", ".graph"))
                 tasks.append(executor.submit(subprocess.run, 
-                             ["python", "process_mol.py", input_p, output_p]))
+                             [sys.executable, "process_mol.py", input_p, output_p]))
     for t in tasks: t.result()
 
 def compile_engine():
