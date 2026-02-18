@@ -25,19 +25,17 @@ $(EXEC): $(SRC) $(NAUTY_LIB)
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(LDFLAGS)
 
 $(NAUTY_LIB):
-	@echo "--- Compilation de Nauty ---"
-	cd $(NAUTY_DIR) && $(MAKE)
-	@echo "--- Configuration de Nauty ---"
-	cd $(NAUTY_DIR) && ./configure
+	@echo "--- Téléchargement ---"
+	wget $(NAUTY_URL)
 	@echo "--- Extraction de Nauty ---"
 	rm -rf $(NAUTY_DIR)
 	tar xvzf $(NAUTY_ARCHIVE)
 	touch $(NAUTY_DIR)
 	rm $(NAUTY_ARCHIVE)
-
-$(NAUTY_ARCHIVE):
-	@echo "--- Téléchargement ---"
-	wget $(NAUTY_URL)
+	@echo "--- Configuration de Nauty ---"
+	cd $(NAUTY_DIR) && ./configure
+	@echo "--- Compilation de Nauty ---"
+	cd $(NAUTY_DIR) && $(MAKE)
 
 zip:
 	rm -f $(EXEC) $(EXEC).exe $(REPORT)

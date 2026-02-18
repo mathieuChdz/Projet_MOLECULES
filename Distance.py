@@ -40,8 +40,8 @@ def get_extended_fingerprint(mol, radius=2, nBits=2048):
     return combined_fp
 
 
-def Tanimoto2D(v1, v2):
-    return DataStructs.TanimotoSimilarity(v1, v2)
+def Tanimoto2D(data1, data2):
+    return DataStructs.TanimotoSimilarity(data1[0], data2[0])
 
 
 def vecteur_fingerprint2D(mol_path):
@@ -76,15 +76,15 @@ def genere_shape(mol_path, n=20):
     return (m1, ids1)
 
 
-def ShapeTanimoto(ids1, ids2):
-    m1 = ids1[0]
-    m2 = ids2[0]
+def ShapeTanimoto(data1, data2):
+    m1 = data1[1]
+    m2 = data2[1]
 
     best_sim = 0.0
 
     # Comparaison N x N conformères (peut être lent si n est grand)
-    for id1 in ids1[1]:
-        for id2 in ids2[1]:
+    for id1 in data1[2]:
+        for id2 in data2[2]:
             # O3A : Open3D Align. Aligne m2 sur m1.
             pyO3A = rdMolAlign.GetO3A(m2, m1, prbCid=id2, refCid=id1)
             pyO3A.Align()
@@ -101,16 +101,16 @@ def ShapeTanimoto(ids1, ids2):
     return best_sim
 
 
-def score(v1, m1_conf, v2, m2_conf, a=0.5):
+def score(data1, data2, a=0.5):
     """
     Score combiné.
     a : Poids de la 2D (0.0 à 1.0).
     """
     if a == 0:
-        return ShapeTanimoto(m1_conf, m2_conf)
+        return ShapeTanimoto(data1, data2)
     elif a == 1:
-        return Tanimoto2D(v1, v2)
-    sim2d = Tanimoto2D(v1, v2)
-    sim3d = ShapeTanimoto(m1_conf, m2_conf)
+        return Tanimoto2D(data1, data2)
+    sim2d = Tanimoto2D(data1, data2)
+    sim3d = ShapeTanimoto(data1, data2)
 
     return a * sim2d + (1 - a) * sim3d
