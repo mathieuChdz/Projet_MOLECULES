@@ -70,32 +70,25 @@ def safe_filename(s):
 
 
 def convert_mol_to_graph(mol_path, output_path):
-    """Version avec types d'atomes (Couleurs) pour Nauty."""
-    try:
-        mol = Chem.MolFromMolFile(mol_path)
-        if not mol:
-            return
-        mol = Chem.AddHs(mol)
-        num_atoms = mol.GetNumAtoms()
+    mol = Chem.MolFromMolFile(mol_path)
+    if not mol:
+        return
+    Chem.RemoveStereochemistry(mol)
+    new_order = list(Chem.CanonicalRankAtoms(mol, breakTies=True))
+    mol = Chem.RenumberAtoms(mol, new_order)
+    # 3. Standardiser les Hydrogènes
+    mol = Chem.RemoveHs(mol)
+    mol = Chem.AddHs(mol, addCoords=False)
+    num_atoms = mol.GetNumAtoms()
+    atoms = mol.GetAtoms()
+    bonds = mol.GetBonds()
 
-        atom_types = []
-        for atom in mol.GetAtoms():
-            atom_types.append(str(atom.GetAtomicNum()))
-
-        edges = []
-        for bond in mol.GetBonds():
-            u = bond.GetBeginAtomIdx()
-            v = bond.GetEndAtomIdx()
-            edges.append(f"{u} {v}")
-
-        with open(output_path, "w") as f:
-            f.write(f"{num_atoms}\n")
-            f.write(" ".join(atom_types) + "\n")
-            f.write("\n".join(edges))
-            f.write("\n")
-
-    except Exception:
-        pass
+    with open(output_path, "w") as f:
+        f.write(f"{num_atoms} {len(bonds)}\n")
+        atom_types = [str(a.GetAtomicNum()) for a in atoms]
+        f.write(" ".join(atom_types) + "\n")
+        for bond in bonds:
+            f.write(f"{bond.GetBeginAtomIdx()} {bond.GetEndAtomIdx()}\n")
 
 
 def split_molecules(sdf_path):
@@ -285,6 +278,6 @@ if __name__ == "__main__":
 
     groups, all_mols = find_isomorphs()
 
-    sim_matrix, infos = compute_similarity_matrix(all_mols)
+    sim_matrix = compute_similarity_matrix(all_mols)
 
-    generate_report(groups, all_mols, sim_matrix, infos)
+    generate_report(groups, all_mols, sim_matrix)
