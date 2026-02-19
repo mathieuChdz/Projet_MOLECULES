@@ -9,7 +9,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
 from rdkit import Chem
 from rdkit.Chem import Draw, AllChem
-from jinja2 import Environment, FileSystemLoader  # <--- NOUVEL IMPORT
+from jinja2 import Environment, FileSystemLoader
+import argparse
 
 # Import modules
 from Distance import vecteur_fingerprint2D, score, genere_shape
@@ -74,7 +75,7 @@ def convert_mol_to_graph(mol_path, output_path):
         mol = Chem.MolFromMolFile(mol_path)
         if not mol:
             return
-
+        mol = Chem.AddHs(mol)
         num_atoms = mol.GetNumAtoms()
 
         atom_types = []
@@ -252,19 +253,38 @@ def generate_report(groups, all_molecules, similarity_matrix):
 
 
 if __name__ == "__main__":
-    # Pour que cela fonctionne, il faut copier-coller les fonctions manquantes
-    # (setup, download, etc.) du message précédent ici.
+    parser = argparse.ArgumentParser(
+        description="Analyse structurelle et isomorphisme de molécules à partir d'un fichier SDF."
+    )
+    parser.add_argument(
+        "input",
+        type=str,
+        help="Chemin vers un fichier SDF local OU lien de téléchargement (http/https)."
+    )
 
-    if len(sys.argv) < 2:
-        print("Usage: python main.py <URL_SDF>")
-        sys.exit(1)
+    args = parser.parse_args()
+    input_arg = args.input
 
     setup()
-    source_path = download_data(sys.argv[1])
+
+    if input_arg.startswith("http://") or input_arg.startswith("https://"):
+        source_path = download_data(input_arg)
+    elif os.path.isfile(input_arg):
+        print(f"[*] Utilisation du fichier local : {input_arg}")
+        if not os.path.isdir(DATA_DIR):
+            os.mkdir(DATA_DIR)
+        source_path = os.path.join(DATA_DIR, "source.sdf")
+        shutil.copy(input_arg, source_path)
+    else:
+        print(f"[!] Erreur : L'argument '{
+              input_arg}' n'est ni une URL valide ni un fichier existant.")
+        sys.exit(1)
+
     conversion_tasks = split_molecules(source_path)
     process_conversions(conversion_tasks)
-    groups, all_mols = find_isomorphs()
-    sim_matrix = compute_similarity_matrix(all_mols)
 
-    # Appel de la nouvelle fonction
-    generate_report(groups, all_mols, sim_matrix)
+    groups, all_mols = find_isomorphs()
+
+    sim_matrix, infos = compute_similarity_matrix(all_mols)
+
+    generate_report(groups, all_mols, sim_matrix, infos)

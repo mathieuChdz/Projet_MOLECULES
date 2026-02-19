@@ -50,30 +50,42 @@ def vecteur_fingerprint2D(mol_path):
 
 
 def genere_shape(mol_path, n=20):
-    # n est le nombre de conformères générés
-    mol1 = Chem.MolFromMolFile(mol_path)
+    """
+    Génère la 3D uniquement si la molécule n'en possède pas déjà une.
+    RENVOIE L'OBJET MOLÉCULE + LES IDS.
+    """
+    mol = Chem.MolFromMolFile(mol_path, removeHs=False)
+    if mol is None:
+        return None, []
 
-    # Ajout des Hydrogènes (essentiel pour la 3D et le volume)
-    m1 = Chem.AddHs(mol1)
+    has_3d = False
+    if mol.GetNumConformers() > 0:
+        conf = mol.GetConformer()
+        if conf.Is3D():
+            for i in range(mol.GetNumAtoms()):
+                if conf.GetAtomPosition(i).z != 0.0:
+                    has_3d = True
+                    break
 
-    # Paramètres de génération 3D
-    params = AllChem.ETKDGv3()
-    params.useRandomCoords = True  # Aide parfois à la convergence
-    params.maxIterations = 1000
+    m_h = Chem.AddHs(mol, addCoords=True)
 
-    # Génération des conformères
-    # embedMolecule retourne -1 si échec, on gère ça avec try/except ou check liste
-    ids1 = AllChem.EmbedMultipleConfs(m1, numConfs=n, params=params)
+    if has_3d:
+        ids = [0]
+    else:
+        params = AllChem.ETKDGv3()
+        params.useRandomCoords = True
+        params.maxIterations = 1000
+        params.pruneRmsThresh = 0.5
+        ids = list(AllChem.EmbedMultipleConfs(
+            m_h, numConfs=n, params=params))
 
-    # Optimisation UFF (Force Field) pour relaxer la géométrie
-    # On capture les erreurs potentielles d'optimisation (non-convergentes)
-    try:
-        for cid in ids1:
-            AllChem.UFFOptimizeMolecule(m1, confId=cid)
-    except ValueError:
-        pass  # Continue avec la géométrie non optimisée si l'UFF échoue
+        try:
+            for cid in ids:
+                AllChem.UFFOptimizeMolecule(m_h, confId=cid)
+        except ValueError:
+            pass
 
-    return (m1, ids1)
+    return m_h, ids
 
 
 def ShapeTanimoto(data1, data2):
