@@ -75,11 +75,17 @@ def genere_shape(mol_path, n=20):
         params = AllChem.ETKDGv3()
         params.useRandomCoords = True
         params.maxIterations = 1000
-        params.pruneRmsThresh = 0.5
+        params.pruneRmsThresh = 0.3
         ids = list(AllChem.EmbedMultipleConfs(
             m_h, numConfs=n, params=params))
 
         try:
+            nb_conf_keep = 6
+            # Optimisation batch + énergies
+            res = AllChem.UFFOptimizeMoleculeConfs(m_h, numThreads=0)
+            # Garder les k conformères les plus bas énergie
+            ids = sorted(ids, key=lambda cid: res[cid][1])[
+                :min(nb_conf_keep, len(ids))]
             for cid in ids:
                 AllChem.UFFOptimizeMolecule(m_h, confId=cid)
         except ValueError:

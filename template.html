@@ -154,5 +154,57 @@
         </div>
         {% endfor %}
     </div>
+<hr>
+<h2>Analyse Hiérarchique (Dendrogramme Interactif)</h2>
+
+<div style="display: flex; gap: 20px; align-items: flex-start; margin-bottom: 40px;">
+    
+    <div style="flex: 3; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+        {{ dendrogram_html | safe }}
+    </div>
+    
+    <div style="flex: 1; text-align: center; border: 1px solid #007bff; border-radius: 8px; padding: 20px; background-color: #f8fbff; position: sticky; top: 20px;">
+        <h3 style="margin-top: 0; color: #007bff;">Visualisation</h3>
+        <p style="font-size: 0.85em; color: #666;">Cliquez sur l'extrémité d'une branche (sur la ligne de la molécule au niveau 0) pour l'afficher ici.</p>
+        
+        <div id="mol-preview-container" style="display: none; margin-top: 20px;">
+            <h4 id="mol-name" style="word-wrap: break-word; color: #333; margin-bottom: 15px;"></h4>
+            <img id="mol-img" src="" alt="Molecule" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; background: white; padding: 10px;">
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Récupère l'élément du graphique généré par Plotly
+    var plotDiv = document.getElementById('plotly_dendrogram');
+    
+    // Écouteur d'événement sur les clics Plotly
+    plotDiv.on('plotly_click', function(data) {
+        var point = data.points[0];
+        
+        // Dans un dendrogramme, les "feuilles" (les molécules) touchent l'axe Y à 0
+        // On vérifie qu'on a bien cliqué sur le bas d'une branche
+        if (point.y === 0) { 
+            // Plotly stocke les noms des molécules dans ticktext
+            var tickvals = plotDiv.layout.xaxis.tickvals;
+            var ticktext = plotDiv.layout.xaxis.ticktext;
+            
+            // On trouve l'index du nom correspondant à la position X cliquée
+            var idx = tickvals.indexOf(point.x);
+            if (idx !== -1) {
+                var molName = ticktext[idx];
+                
+                // On met à jour le panneau de droite
+                document.getElementById('mol-name').innerText = molName;
+                document.getElementById('mol-img').src = 'data/images/' + molName + '.png';
+                
+                // On rend le panneau visible
+                document.getElementById('mol-preview-container').style.display = 'block';
+            }
+        }
+    });
+});
+</script>
 </body>
 </html>
