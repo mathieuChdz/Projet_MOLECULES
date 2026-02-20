@@ -61,3 +61,11 @@ Docs/rapport/*.gz
 src/molfiles/*
 src/step1/__pycache__/*
 Docs/rapport/*
+
+Docs/
+nauty*
+
+data_isomers/
+data_all/
+res/
+clustering_results/

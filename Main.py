@@ -11,6 +11,7 @@ from rdkit import Chem
 from rdkit.Chem import Draw, AllChem
 from jinja2 import Environment, FileSystemLoader
 import argparse
+import json
 
 # Import modules
 from Distance import vecteur_fingerprint2D, score, genere_shape
@@ -24,6 +25,7 @@ IMG_DIR = os.path.join(DATA_DIR, "images")
 REPORT_FILE = "resultats.html"
 TEMPLATE_FILE = "template.html"  # Nom du fichier template
 EXEC_CHECK_ISO = "./Check_iso"
+GROUPEMENT_DIR = os.path.join(DATA_DIR, "groupement")
 
 
 def setup():
@@ -35,7 +37,7 @@ def setup():
         except OSError as e:
             print(f"[!] Erreur lors du nettoyage : {e}")
 
-    for folder in [DATA_DIR, MOL_DIR, GRAPH_DIR, IMG_DIR]:
+    for folder in [DATA_DIR, MOL_DIR, GRAPH_DIR, IMG_DIR, GROUPEMENT_DIR]:
         os.makedirs(folder, exist_ok=True)
 
 
@@ -100,17 +102,17 @@ def split_molecules(sdf_path):
         if mol is None:
             continue
 
-        base_name = mol.GetProp('_Name') if mol.HasProp('_Name') else "MOL"
-        iupac = mol.GetProp("PUBCHEM_IUPAC_NAME") if mol.HasProp(
-            "PUBCHEM_IUPAC_NAME") else ""
+        chebi_id = mol.GetProp("ChEBI ID") if mol.HasProp("ChEBI ID") else ""
+        chebi_name = mol.GetProp("ChEBI NAME") if mol.HasProp("ChEBI NAME") else ""
+        pubchem_cid = mol.GetProp("PUBCHEM_COMPOUND_CID") if mol.HasProp("PUBCHEM_COMPOUND_CID") else ""
+        pubchem_iupac = mol.GetProp("PUBCHEM_IUPAC_NAME") if mol.HasProp("PUBCHEM_IUPAC_NAME") else ""
+        sdf_name = mol.GetProp('_Name') if mol.HasProp('_Name') else ""
 
-        base_name = safe_filename(base_name)
-        iupac = safe_filename(iupac)
+        id_part = safe_filename(chebi_id) or safe_filename(pubchem_cid) or safe_filename(sdf_name) or "UNKNOWN_ID"
+        name_part = safe_filename(chebi_name) or safe_filename(pubchem_iupac) or safe_filename(sdf_name) or "UNKNOWN_NAME"
 
-        if iupac:
-            out_name = f"mol_{i}_{base_name}_{iupac}"
-        else:
-            out_name = f"mol_{i}_{base_name}"
+        # Format forcé : mol_<index>_<id>_<name>
+        out_name = f"mol_{i}_{id_part}_{name_part}"
 
         mol_path = os.path.join(MOL_DIR, f"{out_name}.mol")
         img_path = os.path.join(IMG_DIR, f"{out_name}.png")
@@ -170,7 +172,37 @@ def find_isomorphs():
 
     groups = [mols for mols in signatures.values() if len(mols) > 1]
     groups.sort(key=len, reverse=True)
-    return groups, sorted(all_molecules)
+    return groups, sorted(all_molecules), signatures
+
+
+def save_groups_json(signatures):
+    """Sauvegarde les groupes d'isomorphes dans data/groupement/groupes_isomorphes.json."""
+    os.makedirs(GROUPEMENT_DIR, exist_ok=True)
+    output_path = os.path.join(GROUPEMENT_DIR, "groupes_isomorphes.json")
+
+    multi_groups = [sorted(mols) for mols in signatures.values() if len(mols) > 1]
+    multi_groups.sort(key=len, reverse=True)
+    singletons = sorted([mols[0] for mols in signatures.values() if len(mols) == 1])
+
+    payload = {
+        "date": time.strftime("%d/%m/%Y %H:%M:%S"),
+        "molecules_analysees": sum(len(v) for v in signatures.values()),
+        "nombre_total_groupes": len(signatures),
+        "groupes_isomorphes": [
+            {
+                "id": gid,
+                "taille": len(members),
+                "molecules": members,
+            }
+            for gid, members in enumerate(multi_groups, 1)
+        ],
+        "singletons": singletons,
+    }
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+    print(f"[*] Groupes sauvegardés en JSON : {output_path}")
 
 
 def compute_similarity_matrix(all_molecules):
@@ -276,8 +308,10 @@ if __name__ == "__main__":
     conversion_tasks = split_molecules(source_path)
     process_conversions(conversion_tasks)
 
-    groups, all_mols = find_isomorphs()
+    groups, all_mols, signatures = find_isomorphs()
 
     sim_matrix = compute_similarity_matrix(all_mols)
 
     generate_report(groups, all_mols, sim_matrix)
+
+    save_groups_json(signatures=signatures)
