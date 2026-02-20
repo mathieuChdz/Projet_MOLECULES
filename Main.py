@@ -1,205 +1,283 @@
 import os
-import subprocess
 import sys
 import requests
 import time
-from rdkit import Chem
-from concurrent.futures import ProcessPoolExecutor
-from rdkit.Chem import Draw
+import subprocess
 import re
+import shutil
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from tqdm import tqdm
+from rdkit import Chem
+from rdkit.Chem import Draw, AllChem
+from jinja2 import Environment, FileSystemLoader
+import argparse
 
-NAUTY_DIR = "./nauty"
+# Import modules
+from Distance import vecteur_fingerprint2D, score, genere_shape
+
+# Configuration
+NAUTY_DIR = "nauty2_9_3"
 DATA_DIR = "data"
-MOL_DIR = f"{DATA_DIR}/molecules"
-GRAPH_DIR = f"{DATA_DIR}/graphs"
+MOL_DIR = os.path.join(DATA_DIR, "molecules")
+GRAPH_DIR = os.path.join(DATA_DIR, "graphs")
+IMG_DIR = os.path.join(DATA_DIR, "images")
 REPORT_FILE = "resultats.html"
-IMG_DIR = f"{DATA_DIR}/images"
+TEMPLATE_FILE = "template.html"  # Nom du fichier template
+EXEC_CHECK_ISO = "./Check_iso"
+
 
 def setup():
-    os.makedirs(MOL_DIR, exist_ok=True)
-    os.makedirs(GRAPH_DIR, exist_ok=True)
-    os.makedirs(IMG_DIR, exist_ok=True)
-    for folder in [MOL_DIR, GRAPH_DIR, IMG_DIR]:
-        for f in os.listdir(folder):
-            os.remove(os.path.join(folder, f))
+    """Supprime tout le dossier data et recrée l'arborescence à neuf."""
+    if os.path.exists(DATA_DIR):
+        print(f"[*] Nettoyage complet du dossier {DATA_DIR}...")
+        try:
+            shutil.rmtree(DATA_DIR)
+        except OSError as e:
+            print(f"[!] Erreur lors du nettoyage : {e}")
+
+    for folder in [DATA_DIR, MOL_DIR, GRAPH_DIR, IMG_DIR]:
+        os.makedirs(folder, exist_ok=True)
+
 
 def download_data(url):
+    print(f"[*] Téléchargement depuis : {url}")
     path = os.path.join(DATA_DIR, "source.sdf")
     try:
-        r = requests.get(url)
+        r = requests.get(url, stream=True)
         r.raise_for_status()
-        with open(path, 'wb') as f:
-            f.write(r.content)
+        total_size = int(r.headers.get('content-length', 0))
+
+        with open(path, 'wb') as f, tqdm(
+            desc="Téléchargement",
+            total=total_size,
+            unit='B',
+            unit_scale=True,
+            unit_divisor=1024,
+        ) as bar:
+            for data in r.iter_content(chunk_size=1024):
+                size = f.write(data)
+                bar.update(size)
         return path
     except Exception as e:
+        print(f"[!] Erreur de téléchargement : {e}")
         sys.exit(1)
 
+
 def safe_filename(s):
-    s = s.strip()
-    s = s.replace(" ", "_")
+    s = str(s).strip().replace(" ", "_")
     s = re.sub(r"[^a-zA-Z0-9_\-]", "", s)
     return s[:80]
 
+
+def convert_mol_to_graph(mol_path, output_path):
+    mol = Chem.MolFromMolFile(mol_path)
+    if not mol:
+        return
+    Chem.RemoveStereochemistry(mol)
+    new_order = list(Chem.CanonicalRankAtoms(mol, breakTies=True))
+    mol = Chem.RenumberAtoms(mol, new_order)
+    # 3. Standardiser les Hydrogènes
+    mol = Chem.RemoveHs(mol)
+    mol = Chem.AddHs(mol, addCoords=False)
+    num_atoms = mol.GetNumAtoms()
+    atoms = mol.GetAtoms()
+    bonds = mol.GetBonds()
+
+    with open(output_path, "w") as f:
+        f.write(f"{num_atoms} {len(bonds)}\n")
+        atom_types = [str(a.GetAtomicNum()) for a in atoms]
+        f.write(" ".join(atom_types) + "\n")
+        for bond in bonds:
+            f.write(f"{bond.GetBeginAtomIdx()} {bond.GetEndAtomIdx()}\n")
+
+
 def split_molecules(sdf_path):
+    print("[*] Découpage des molécules...")
     suppl = Chem.SDMolSupplier(sdf_path)
-    
-    for i, mol in enumerate(suppl):
+    conversion_args = []
+
+    for i, mol in enumerate(tqdm(suppl, desc="Extraction SDF", unit="mol")):
         if mol is None:
             continue
 
-        # Nom générique
         base_name = mol.GetProp('_Name') if mol.HasProp('_Name') else "MOL"
+        iupac = mol.GetProp("PUBCHEM_IUPAC_NAME") if mol.HasProp(
+            "PUBCHEM_IUPAC_NAME") else ""
 
-        # Nom IUPAC PubChem
-        iupac = ""
-        if mol.HasProp("PUBCHEM_IUPAC_NAME"):
-            iupac = mol.GetProp("PUBCHEM_IUPAC_NAME")
-
-        # Nettoyage pour fichiers
         base_name = safe_filename(base_name)
         iupac = safe_filename(iupac)
 
-        # Nom final
         if iupac:
             out_name = f"mol_{i}_{base_name}_{iupac}"
         else:
             out_name = f"mol_{i}_{base_name}"
 
         mol_path = os.path.join(MOL_DIR, f"{out_name}.mol")
+        img_path = os.path.join(IMG_DIR, f"{out_name}.png")
+        graph_path = os.path.join(GRAPH_DIR, f"{out_name}.graph")
+
         with open(mol_path, "w") as f:
             f.write(Chem.MolToMolBlock(mol))
 
-        img_path = os.path.join(IMG_DIR, f"{out_name}.png")
-        Draw.MolToFile(mol, img_path, size=(300, 300))
+        try:
+            AllChem.Compute2DCoords(mol)
+            Draw.MolToFile(mol, img_path, size=(300, 300))
+        except:
+            pass
+
+        conversion_args.append((mol_path, graph_path))
+
+    return conversion_args
 
 
-def process_conversions():
-    tasks = []
+def process_conversions(conversion_args):
+    total = len(conversion_args)
+    print(f"[*] Conversion de {total} molécules en graphes...")
+
     with ProcessPoolExecutor() as executor:
-        for f in os.listdir(MOL_DIR):
-            if f.endswith(".mol"):
-                input_p = os.path.join(MOL_DIR, f)
-                output_p = os.path.join(GRAPH_DIR, f.replace(".mol", ".graph"))
-                tasks.append(executor.submit(subprocess.run, 
-                             [sys.executable, "process_mol.py", input_p, output_p]))
-    for t in tasks: t.result()
+        futures = [executor.submit(convert_mol_to_graph, *args)
+                   for args in conversion_args]
+        for _ in tqdm(as_completed(futures), total=total, desc="Génération Graphes", unit="graphe"):
+            pass
 
-def compile_engine():
-    if not os.path.exists("./check_iso"):
-        cmd = ["gcc", "-O3", "-o", "check_iso", "check_iso.c", 
-               f"{NAUTY_DIR}/nauty.a", f"-I{NAUTY_DIR}"]
-        subprocess.run(cmd, check=True)
 
 def find_isomorphs():
+    print("[*] Recherche d'isomorphes (Nauty)...")
+
+    if not os.path.exists(EXEC_CHECK_ISO):
+        print(f"[!] Erreur : L'exécutable {EXEC_CHECK_ISO} est introuvable.")
+        sys.exit(1)
+
     signatures = {}
     all_molecules = []
-
     graphs = [f for f in os.listdir(GRAPH_DIR) if f.endswith(".graph")]
 
-    for g in graphs:
+    for g in tqdm(graphs, desc="Analyse Nauty", unit="mol"):
         mol_name = g.replace(".graph", "")
         all_molecules.append(mol_name)
-
         path = os.path.join(GRAPH_DIR, g)
-        res = subprocess.run(["./check_iso", path], capture_output=True, text=True)
-        sig = res.stdout.strip()
 
-        if sig not in signatures:
-            signatures[sig] = []
-        signatures[sig].append(mol_name)
+        try:
+            res = subprocess.run([EXEC_CHECK_ISO, path],
+                                 capture_output=True, text=True)
+            sig = res.stdout.strip()
+            if sig:
+                if sig not in signatures:
+                    signatures[sig] = []
+                signatures[sig].append(mol_name)
+        except Exception:
+            pass
 
     groups = [mols for mols in signatures.values() if len(mols) > 1]
+    groups.sort(key=len, reverse=True)
     return groups, sorted(all_molecules)
 
 
-def generate_report(groups, all_molecules):
+def compute_similarity_matrix(all_molecules):
+    n = len(all_molecules)
+    print(f"[*] Calcul Similarité pour {n} molécules...")
+
+    precomputed_data = []
+
+    for name in tqdm(all_molecules, desc="Génération 3D & FP", unit="mol"):
+        path = os.path.join(MOL_DIR, f"{name}.mol")
+        vec = vecteur_fingerprint2D(path)
+        mol_3d, ids = genere_shape(path)
+        precomputed_data.append((vec, mol_3d, ids))
+
+    print(f"\n[*] Calcul de la matrice croisée...")
+    matrix = {}
+    total_ops = (n * (n + 1)) // 2
+
+    with tqdm(total=total_ops, desc="Calcul Distances", unit="paire") as pbar:
+        for i in range(n):
+            name_i = all_molecules[i]
+            matrix[name_i] = {}
+            data_i = precomputed_data[i]
+
+            for j in range(n):
+                name_j = all_molecules[j]
+
+                if i == j:
+                    matrix[name_i][name_j] = 1.0
+                elif j < i:
+                    matrix[name_i][name_j] = matrix[name_j][name_i]
+                else:
+                    data_j = precomputed_data[j]
+                    try:
+                        val = score(data_i, data_j)
+                        matrix[name_i][name_j] = val
+                    except Exception:
+                        matrix[name_i][name_j] = 0.0
+                    pbar.update(1)
+
+    return matrix
+
+
+def generate_report(groups, all_molecules, similarity_matrix):
+    print("[*] Génération du rapport HTML via Jinja2...")
     now = time.strftime("%d/%m/%Y %H:%M:%S")
 
-    html = f"""
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <title>Rapport d'Isomorphisme</title>
-        <style>
-            body {{ font-family: 'Segoe UI', Arial, sans-serif; max-width: 1100px; margin: auto; background: #f4f7f6; padding: 20px; }}
-            h1 {{ color: #2c3e50; }}
-            h2 {{ color: #34495e; margin-top: 40px; }}
-            .summary {{ background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; }}
-            .mol-container {{ display: flex; flex-wrap: wrap; gap: 20px; }}
-            .mol-item {{ width: 220px; background: white; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,.1); }}
-            .mol-item img {{ width: 200px; height: 200px; }}
-            .mol-link {{ display: block; margin-top: 5px; font-size: 0.8em; color: #2980b9; word-break: break-word; }}
-            .group-card {{ background: white; padding: 20px; margin-top: 20px; border-left: 6px solid #3498db; border-radius: 8px; }}
-        </style>
-    </head>
-    <body>
-        <h1>Rapport d'isomorphisme moléculaire</h1>
+    # Configuration de Jinja2 pour charger le fichier template.html
+    file_loader = FileSystemLoader('.')
+    env = Environment(loader=file_loader)
 
-        <div class="summary">
-            <p><b>Date :</b> {now}</p>
-            <p><b>Molécules analysées :</b> {len(all_molecules)}</p>
-            <p><b>Groupes d'isomorphes :</b> {len(groups)}</p>
-        </div>
+    try:
+        template = env.get_template(TEMPLATE_FILE)
+    except Exception as e:
+        print(f"[!] Erreur : Impossible de trouver '{
+              TEMPLATE_FILE}'. Vérifie qu'il est dans le dossier.")
+        sys.exit(1)
 
-        <h2>Toutes les molécules analysées</h2>
-        <div class="mol-container">
-    """
+    # On prépare les données à envoyer au template
+    # Jinja fera le travail de boucle et d'affichage
+    output = template.render(
+        now=now,
+        groups=groups,
+        all_molecules=all_molecules,
+        matrix=similarity_matrix
+    )
 
-    for mol_name in all_molecules:
-        parts = mol_name.split("_")
-        iupac = "_".join(parts[3:]) if len(parts) > 3 else ""
-        label = iupac.replace("_", " ") if iupac else mol_name
-        img_path = f"data/images/{mol_name}.png"
-
-        html += f"""
-        <div class="mol-item">
-            <img src="{img_path}">
-            <div class="mol-link">{label}</div>
-        </div>
-        """
-
-    html += "</div>"
-
-    if groups:
-        html += "<h2>Groupes de structures isomorphes</h2>"
-
-        for i, grp in enumerate(groups):
-            html += f'<div class="group-card"><b>Groupe {i+1}</b><div class="mol-container">'
-
-            for mol_name in grp:
-                parts = mol_name.split("_")
-                iupac = "_".join(parts[3:]) if len(parts) > 3 else ""
-                label = iupac.replace("_", " ") if iupac else mol_name
-                img_path = f"data/images/{mol_name}.png"
-                pubchem = f"https://pubchem.ncbi.nlm.nih.gov/#query={label}"
-
-                html += f"""
-                <div class="mol-item">
-                    <img src="{img_path}">
-                    <a class="mol-link" href="{pubchem}" target="_blank">{label}</a>
-                </div>
-                """
-
-            html += "</div></div>"
-
-    html += """
-        </body>
-        </html>
-    """
-
+    # Écriture du fichier final
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
-        f.write(html)
+        f.write(output)
 
+    print(f"\n[*] Rapport généré : {os.path.abspath(REPORT_FILE)}")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        sys.exit(1)
-    
+    parser = argparse.ArgumentParser(
+        description="Analyse structurelle et isomorphisme de molécules à partir d'un fichier SDF."
+    )
+    parser.add_argument(
+        "input",
+        type=str,
+        help="Chemin vers un fichier SDF local OU lien de téléchargement (http/https)."
+    )
+
+    args = parser.parse_args()
+    input_arg = args.input
+
     setup()
-    source = download_data(sys.argv[1])
-    split_molecules(source)
-    process_conversions()
-    compile_engine()
-    groups, all_molecules = find_isomorphs()
-    generate_report(groups, all_molecules)
+
+    if input_arg.startswith("http://") or input_arg.startswith("https://"):
+        source_path = download_data(input_arg)
+    elif os.path.isfile(input_arg):
+        print(f"[*] Utilisation du fichier local : {input_arg}")
+        if not os.path.isdir(DATA_DIR):
+            os.mkdir(DATA_DIR)
+        source_path = os.path.join(DATA_DIR, "source.sdf")
+        shutil.copy(input_arg, source_path)
+    else:
+        print(f"[!] Erreur : L'argument '{
+              input_arg}' n'est ni une URL valide ni un fichier existant.")
+        sys.exit(1)
+
+    conversion_tasks = split_molecules(source_path)
+    process_conversions(conversion_tasks)
+
+    groups, all_mols = find_isomorphs()
+
+    sim_matrix = compute_similarity_matrix(all_mols)
+
+    generate_report(groups, all_mols, sim_matrix)
