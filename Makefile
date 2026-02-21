@@ -38,12 +38,20 @@ run: $(EXEC)
 		curl -X POST -d "cid=$$IDS" "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/SDF" -o db_molecules.sdf; \
 		echo "--- Lancement du script sur les molécules téléchargées ---"; \
 		$(PYTHON) Main.py db_molecules.sdf $(OPT_A) -hc $(HC); \
+		rm db_molecules.sdf; \
 	else \
 		echo "Erreur : Tu dois fournir soit URL, soit SDF_FILE, soit DATABASE."; \
-		echo "Usage 1 : make run URL='http://...' HC=5 [A=0.8]"; \
-		echo "Usage 2 : make run SDF_FILE='chemin/vers/fichier.sdf' HC=10 [A=0.5]"; \
-		echo "Usage 3 : make run DATABASE='dataset.txt' HC=3 [A=0.9]"; \
+		echo "Usage 1 : make run URL='http://...' HC=5 [A=0.8] [OUTPUT='dossier']"; \
+		echo "Usage 2 : make run SDF_FILE='chemin/vers/fichier.sdf' HC=10 [A=0.5] [OUTPUT='dossier']"; \
+		echo "Usage 3 : make run DATABASE='dataset.txt' HC=3 [A=0.9] [OUTPUT='dossier']"; \
 		exit 1; \
+	fi
+	@if [ -n "$(OUTPUT)" ]; then \
+		echo "--- Déplacement des résultats vers $(OUTPUT) ---"; \
+		mkdir -p "$(OUTPUT)"; \
+		rm -rf "$(OUTPUT)/data" "$(OUTPUT)/$(REPORT)"; \
+		mv data "$(OUTPUT)/"; \
+		mv $(REPORT) "$(OUTPUT)/"; \
 	fi
 
 $(EXEC): $(SRC) $(NAUTY_LIB)
