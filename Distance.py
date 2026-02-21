@@ -123,16 +123,18 @@ def ShapeTanimoto(data1, data2):
     return best_sim
 
 
-def score(data1, data2, a=0.5):
+def get_similarities(data1, data2):
     """
-    Score combiné.
-    a : Poids de la 2D (0.0 à 1.0).
+    Calcule et renvoie séparément la similarité 2D et 3D dans un dictionnaire.
     """
-    if a == 0:
-        return ShapeTanimoto(data1, data2)
-    elif a == 1:
-        return Tanimoto2D(data1, data2)
     sim2d = Tanimoto2D(data1, data2)
-    sim3d = ShapeTanimoto(data1, data2)
+    sim3d = 0.0
 
-    return a * sim2d + (1 - a) * sim3d
+    # On calcule la 3D uniquement si les deux molécules ont pu générer des coordonnées 3D
+    if data1[1] is not None and data2[1] is not None:
+        sim3d = ShapeTanimoto(data1, data2)
+
+    return {
+        "sim2d": float(sim2d),
+        "sim3d": float(sim3d)
+    }
