@@ -257,8 +257,13 @@ def compute_similarity_matrix(all_molecules, alpha=0.5):
     return matrix
 
 
-def generate_clustering(all_molecules, sim_matrix, distance_threshold=None):
+def generate_clustering(all_molecules, sim_matrix, num_clusters=23):
     n = len(all_molecules)
+
+    if num_clusters > n:
+        print(f"[!] Attention : Seulement {n} molécules trouvées. "
+              f"Réduction du nombre de clusters de {num_clusters} à {n}.")
+        num_clusters = n
 
     D = np.zeros((n, n))
     for i in range(n):
@@ -269,15 +274,13 @@ def generate_clustering(all_molecules, sim_matrix, distance_threshold=None):
     D = (D + D.T) / 2.0
     condensed = squareform(D)
     Z = linkage(condensed, method='average')
-
-    if distance_threshold is None:
-        distance_threshold = 0.7 * max(Z[:, 2])
+    seuil_couleur = Z[-num_clusters + 1, 2] - 1e-5
 
     fig = ff.create_dendrogram(
         np.zeros((n, 1)),
         labels=all_molecules,
         linkagefun=lambda x: Z,
-        color_threshold=distance_threshold
+        color_threshold=seuil_couleur
     )
 
     tickvals = fig.layout.xaxis.tickvals
@@ -294,12 +297,8 @@ def generate_clustering(all_molecules, sim_matrix, distance_threshold=None):
         name='CarresCliquables'
     ))
 
-    clusters_assign = fcluster(Z, distance_threshold, criterion='distance')
-    num_clusters_trouves = max(clusters_assign)
-
     fig.update_layout(
-        title=f"Clustering Hiérarchique ({
-            num_clusters_trouves} Clusters trouvés automatiquement)",
+        title=f"Clustering Hiérarchique ({num_clusters} Clusters)",
         xaxis=dict(
             showticklabels=False,
             ticks='',
@@ -321,8 +320,9 @@ def generate_clustering(all_molecules, sim_matrix, distance_threshold=None):
         full_html=False, include_plotlyjs='cdn', div_id="plotly_dendrogram"
     )
 
+    clusters_assign = fcluster(Z, num_clusters, criterion='maxclust')
     clusters_data = []
-    for cluster_id in range(1, num_clusters_trouves + 1):
+    for cluster_id in range(1, num_clusters + 1):
         members = [all_molecules[i]
                    for i in range(n) if clusters_assign[i] == cluster_id]
         if members:
@@ -331,9 +331,6 @@ def generate_clustering(all_molecules, sim_matrix, distance_threshold=None):
 
     sorted_clusters = sorted(
         clusters_data, key=lambda x: x['taille'], reverse=True)
-
-    for new_id, cluster_dict in enumerate(sorted_clusters, 1):
-        cluster_dict['id'] = new_id
 
     return sorted_clusters, dendrogram_html
 
@@ -377,6 +374,11 @@ if __name__ == "__main__":
         help="Chemin vers un fichier SDF local OU lien de téléchargement (http/https)."
     )
     parser.add_argument(
+        "-hc", "--hierarchique_cluster",
+        type=int,
+        help="Nombre de clusters générés par le clustering hiérarchique."
+    )
+    parser.add_argument(
         "-a", "--alpha",
         type=float,
         default=0.5,
@@ -386,6 +388,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     input_arg = args.input
     alpha_arg = args.alpha
+    nbrcluster = args.hierarchique_cluster
 
     if not (0.0 <= alpha_arg <= 1.0):
         print("[!] Erreur : La valeur de l'argument -a doit être comprise entre 0 et 1.")
@@ -413,7 +416,8 @@ if __name__ == "__main__":
 
     sim_matrix = compute_similarity_matrix(all_mols, alpha=alpha_arg)
 
-    clusters_dict, dendro_html = generate_clustering(all_mols, sim_matrix)
+    clusters_dict, dendro_html = generate_clustering(
+        all_mols, sim_matrix, num_clusters=nbrcluster)
 
     save_groups_json(signatures=signatures)
     generate_report(groups, all_mols, sim_matrix, clusters_dict, dendro_html)

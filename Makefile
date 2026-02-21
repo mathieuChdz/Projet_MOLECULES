@@ -20,24 +20,29 @@ OPT_A         = $(if $(A),-a $(A),)
 .PHONY: run clean zip
 
 run: $(EXEC)
+	@if [ -z "$(HC)" ]; then \
+		echo "Erreur : Tu dois fournir le paramètre HC (nombre de clusters)."; \
+		echo "Exemple : make run SDF_FILE='chemin/vers/fichier.sdf' HC=5"; \
+		exit 1; \
+	fi
 	@if [ -n "$(URL)" ]; then \
 		echo "--- Lancement avec l'URL ---"; \
-		$(PYTHON) Main.py "$(URL)" $(OPT_A); \
+		$(PYTHON) Main.py "$(URL)" $(OPT_A) -hc $(HC); \
 	elif [ -n "$(SDF_FILE)" ]; then \
 		echo "--- Lancement avec le fichier local ---"; \
-		$(PYTHON) Main.py "$(SDF_FILE)" $(OPT_A); \
+		$(PYTHON) Main.py "$(SDF_FILE)" $(OPT_A) -hc $(HC); \
 	elif [ -n "$(DATABASE)" ]; then \
 		echo "--- Extraction des IDs depuis $(DATABASE) ---"; \
 		IDS=$$(grep -E '^[0-9]+,' $(DATABASE) | cut -d',' -f1 | paste -sd, -); \
 		echo "--- Téléchargement du fichier SDF via PubChem ---"; \
 		curl -X POST -d "cid=$$IDS" "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/SDF" -o db_molecules.sdf; \
 		echo "--- Lancement du script sur les molécules téléchargées ---"; \
-		$(PYTHON) Main.py db_molecules.sdf $(OPT_A); \
+		$(PYTHON) Main.py db_molecules.sdf $(OPT_A) -hc $(HC); \
 	else \
 		echo "Erreur : Tu dois fournir soit URL, soit SDF_FILE, soit DATABASE."; \
-		echo "Usage 1 : make run URL='http://...' [A=0.8]"; \
-		echo "Usage 2 : make run SDF_FILE='chemin/vers/fichier.sdf' [A=0.5]"; \
-		echo "Usage 3 : make run DATABASE='dataset.txt' [A=0.9]"; \
+		echo "Usage 1 : make run URL='http://...' HC=5 [A=0.8]"; \
+		echo "Usage 2 : make run SDF_FILE='chemin/vers/fichier.sdf' HC=10 [A=0.5]"; \
+		echo "Usage 3 : make run DATABASE='dataset.txt' HC=3 [A=0.9]"; \
 		exit 1; \
 	fi
 
