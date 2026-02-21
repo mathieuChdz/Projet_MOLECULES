@@ -249,19 +249,19 @@ def generate_clustering(all_molecules, sim_matrix, num_clusters=23):
 
     fig.add_trace(go.Scatter(
         x=tickvals,
-        y=[0] * len(tickvals),  # On les place tous au niveau 0
+        y=[0] * len(tickvals),
         mode='markers',
         marker=dict(symbol='square', size=12, color='#007bff',
                     line=dict(color='white', width=1)),
-        text=ticktext,         # Le nom apparaîtra au survol
+        text=ticktext,   
         hoverinfo='text',
-        name='CarresCliquables'  # Nom interne pour le JavaScript
+        name='CarresCliquables'
     ))
 
     fig.update_layout(
         title=f"Clustering Hiérarchique ({num_clusters} Clusters)",
         xaxis=dict(
-            showticklabels=False,  # On cache les textes illisibles
+            showticklabels=False,
             ticks='',
             title=""
         ),
@@ -281,7 +281,6 @@ def generate_clustering(all_molecules, sim_matrix, num_clusters=23):
         full_html=False, include_plotlyjs='cdn', div_id="plotly_dendrogram"
     )
 
-    # ... (Le reste de ton code pour découper et trier les clusters reste identique)
     clusters_assign = fcluster(Z, num_clusters, criterion='maxclust')
     clusters_data = []
     for cluster_id in range(1, num_clusters + 1):
@@ -301,7 +300,6 @@ def generate_report(groups, all_molecules, similarity_matrix, clusters_data, den
     print("[*] Génération du rapport HTML via Jinja2...")
     now = time.strftime("%d/%m/%Y %H:%M:%S")
 
-    # Configuration de Jinja2 pour charger le fichier template.html
     file_loader = FileSystemLoader('.')
     env = Environment(loader=file_loader)
 
@@ -318,9 +316,9 @@ def generate_report(groups, all_molecules, similarity_matrix, clusters_data, den
         all_molecules=all_molecules,
         matrix=similarity_matrix,
         clusters=clusters_data,
-        dendrogram_html=dendrogram_html  # <-- Ajoute bien ça ici
+        dendrogram_html=dendrogram_html
     )
-    # Écriture du fichier final
+
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
         f.write(output)
 
