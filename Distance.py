@@ -81,14 +81,18 @@ def genere_shape(mol_path, n=20):
 
         try:
             nb_conf_keep = 6
-            # Optimisation batch + énergies
             res = AllChem.UFFOptimizeMoleculeConfs(m_h, numThreads=0)
-            # Garder les k conformères les plus bas énergie
             ids = sorted(ids, key=lambda cid: res[cid][1])[
                 :min(nb_conf_keep, len(ids))]
+            valid_ids = []
             for cid in ids:
-                AllChem.UFFOptimizeMolecule(m_h, confId=cid)
-        except ValueError:
+                try:
+                    AllChem.UFFOptimizeMolecule(m_h, confId=cid)
+                    valid_ids.append(cid)
+                except (ValueError, RuntimeError, Exception):
+                    pass
+            ids = valid_ids
+        except Exception:
             pass
 
     return m_h, ids

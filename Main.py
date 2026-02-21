@@ -107,13 +107,18 @@ def split_molecules(sdf_path):
             continue
 
         chebi_id = mol.GetProp("ChEBI ID") if mol.HasProp("ChEBI ID") else ""
-        chebi_name = mol.GetProp("ChEBI NAME") if mol.HasProp("ChEBI NAME") else ""
-        pubchem_cid = mol.GetProp("PUBCHEM_COMPOUND_CID") if mol.HasProp("PUBCHEM_COMPOUND_CID") else ""
-        pubchem_iupac = mol.GetProp("PUBCHEM_IUPAC_NAME") if mol.HasProp("PUBCHEM_IUPAC_NAME") else ""
+        chebi_name = mol.GetProp(
+            "ChEBI NAME") if mol.HasProp("ChEBI NAME") else ""
+        pubchem_cid = mol.GetProp("PUBCHEM_COMPOUND_CID") if mol.HasProp(
+            "PUBCHEM_COMPOUND_CID") else ""
+        pubchem_iupac = mol.GetProp("PUBCHEM_IUPAC_NAME") if mol.HasProp(
+            "PUBCHEM_IUPAC_NAME") else ""
         sdf_name = mol.GetProp('_Name') if mol.HasProp('_Name') else ""
 
-        id_part = safe_filename(chebi_id) or safe_filename(pubchem_cid) or safe_filename(sdf_name) or "UNKNOWN_ID"
-        name_part = safe_filename(chebi_name) or safe_filename(pubchem_iupac) or safe_filename(sdf_name) or "UNKNOWN_NAME"
+        id_part = safe_filename(chebi_id) or safe_filename(
+            pubchem_cid) or safe_filename(sdf_name) or "UNKNOWN_ID"
+        name_part = safe_filename(chebi_name) or safe_filename(
+            pubchem_iupac) or safe_filename(sdf_name) or "UNKNOWN_NAME"
 
         # Format forcé : mol_<index>_<id>_<name>
         out_name = f"mol_{i}_{id_part}_{name_part}"
@@ -184,9 +189,11 @@ def save_groups_json(signatures):
     os.makedirs(GROUPEMENT_DIR, exist_ok=True)
     output_path = os.path.join(GROUPEMENT_DIR, "groupes_isomorphes.json")
 
-    multi_groups = [sorted(mols) for mols in signatures.values() if len(mols) > 1]
+    multi_groups = [sorted(mols)
+                    for mols in signatures.values() if len(mols) > 1]
     multi_groups.sort(key=len, reverse=True)
-    singletons = sorted([mols[0] for mols in signatures.values() if len(mols) == 1])
+    singletons = sorted([mols[0]
+                        for mols in signatures.values() if len(mols) == 1])
 
     payload = {
         "date": time.strftime("%d/%m/%Y %H:%M:%S"),
@@ -209,7 +216,7 @@ def save_groups_json(signatures):
     print(f"[*] Groupes sauvegardés en JSON : {output_path}")
 
 
-def compute_similarity_matrix(all_molecules):
+def compute_similarity_matrix(all_molecules, alpha=0.5):
     n = len(all_molecules)
     print(f"[*] Calcul Similarité pour {n} molécules...")
 
@@ -241,7 +248,7 @@ def compute_similarity_matrix(all_molecules):
                 else:
                     data_j = precomputed_data[j]
                     try:
-                        val = score(data_i, data_j)
+                        val = score(data_i, data_j, alpha)
                         matrix[name_i][name_j] = val
                     except Exception:
                         matrix[name_i][name_j] = 0.0
@@ -250,13 +257,8 @@ def compute_similarity_matrix(all_molecules):
     return matrix
 
 
-def generate_clustering(all_molecules, sim_matrix, num_clusters=23):
+def generate_clustering(all_molecules, sim_matrix, distance_threshold=None):
     n = len(all_molecules)
-
-    if num_clusters > n:
-        print(f"[!] Attention : Seulement {n} molécules trouvées. "
-              f"Réduction du nombre de clusters de {num_clusters} à {n}.")
-        num_clusters = n
 
     D = np.zeros((n, n))
     for i in range(n):
@@ -267,13 +269,15 @@ def generate_clustering(all_molecules, sim_matrix, num_clusters=23):
     D = (D + D.T) / 2.0
     condensed = squareform(D)
     Z = linkage(condensed, method='average')
-    seuil_couleur = Z[-num_clusters + 1, 2] - 1e-5
+
+    if distance_threshold is None:
+        distance_threshold = 0.7 * max(Z[:, 2])
 
     fig = ff.create_dendrogram(
         np.zeros((n, 1)),
         labels=all_molecules,
         linkagefun=lambda x: Z,
-        color_threshold=seuil_couleur
+        color_threshold=distance_threshold
     )
 
     tickvals = fig.layout.xaxis.tickvals
@@ -285,13 +289,17 @@ def generate_clustering(all_molecules, sim_matrix, num_clusters=23):
         mode='markers',
         marker=dict(symbol='square', size=12, color='#007bff',
                     line=dict(color='white', width=1)),
-        text=ticktext,   
+        text=ticktext,
         hoverinfo='text',
         name='CarresCliquables'
     ))
 
+    clusters_assign = fcluster(Z, distance_threshold, criterion='distance')
+    num_clusters_trouves = max(clusters_assign)
+
     fig.update_layout(
-        title=f"Clustering Hiérarchique ({num_clusters} Clusters)",
+        title=f"Clustering Hiérarchique ({
+            num_clusters_trouves} Clusters trouvés automatiquement)",
         xaxis=dict(
             showticklabels=False,
             ticks='',
@@ -313,9 +321,8 @@ def generate_clustering(all_molecules, sim_matrix, num_clusters=23):
         full_html=False, include_plotlyjs='cdn', div_id="plotly_dendrogram"
     )
 
-    clusters_assign = fcluster(Z, num_clusters, criterion='maxclust')
     clusters_data = []
-    for cluster_id in range(1, num_clusters + 1):
+    for cluster_id in range(1, num_clusters_trouves + 1):
         members = [all_molecules[i]
                    for i in range(n) if clusters_assign[i] == cluster_id]
         if members:
@@ -324,6 +331,9 @@ def generate_clustering(all_molecules, sim_matrix, num_clusters=23):
 
     sorted_clusters = sorted(
         clusters_data, key=lambda x: x['taille'], reverse=True)
+
+    for new_id, cluster_dict in enumerate(sorted_clusters, 1):
+        cluster_dict['id'] = new_id
 
     return sorted_clusters, dendrogram_html
 
@@ -366,9 +376,20 @@ if __name__ == "__main__":
         type=str,
         help="Chemin vers un fichier SDF local OU lien de téléchargement (http/https)."
     )
+    parser.add_argument(
+        "-a", "--alpha",
+        type=float,
+        default=0.5,
+        help="Ratio (entre 0 et 1) pour le calcul du score (ex: poids du Tanimoto 2D vs 3D)."
+    )
 
     args = parser.parse_args()
     input_arg = args.input
+    alpha_arg = args.alpha
+
+    if not (0.0 <= alpha_arg <= 1.0):
+        print("[!] Erreur : La valeur de l'argument -a doit être comprise entre 0 et 1.")
+        sys.exit(1)
 
     setup()
 
@@ -390,10 +411,9 @@ if __name__ == "__main__":
 
     groups, all_mols, signatures = find_isomorphs()
 
-    sim_matrix = compute_similarity_matrix(all_mols)
+    sim_matrix = compute_similarity_matrix(all_mols, alpha=alpha_arg)
 
-    clusters_dict, dendro_html = generate_clustering(
-        all_mols, sim_matrix, num_clusters=23)
-  
+    clusters_dict, dendro_html = generate_clustering(all_mols, sim_matrix)
+
     save_groups_json(signatures=signatures)
     generate_report(groups, all_mols, sim_matrix, clusters_dict, dendro_html)
