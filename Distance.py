@@ -102,23 +102,31 @@ def ShapeTanimoto(data1, data2):
     m1 = data1[1]
     m2 = data2[1]
 
+    # Sécurité si les molécules n'ont pas de 3D
+    if m1 is None or m2 is None:
+        return 0.0
+
     best_sim = 0.0
 
-    # Comparaison N x N conformères (peut être lent si n est grand)
+    # Comparaison N x N conformères
     for id1 in data1[2]:
         for id2 in data2[2]:
-            # O3A : Open3D Align. Aligne m2 sur m1.
-            pyO3A = rdMolAlign.GetO3A(m2, m1, prbCid=id2, refCid=id1)
-            pyO3A.Align()
+            try:
+                # O3A : Open3D Align. Aligne m2 sur m1.
+                pyO3A = rdMolAlign.GetO3A(m2, m1, prbCid=id2, refCid=id1)
+                pyO3A.Align()
 
-            # Calcul de la similarité de forme (Shape Tanimoto Distance)
-            # Attention: ShapeTanimotoDist renvoie une DISTANCE (0 = identique, 1 = différent)
-            dist = rdShapeHelpers.ShapeTanimotoDist(
-                m1, m2, confId1=id1, confId2=id2)
-            sim = 1.0 - dist
+                # Calcul de la similarité de forme
+                dist = rdShapeHelpers.ShapeTanimotoDist(
+                    m1, m2, confId1=id1, confId2=id2)
+                sim = 1.0 - dist
 
-            if sim > best_sim:
-                best_sim = sim
+                if sim > best_sim:
+                    best_sim = sim
+            except Exception:
+                # Si RDKit ne trouve pas les paramètres MMFF94 (ex: O2, CO),
+                # on ignore l'erreur. La similarité 3D restera à 0 pour ce conformère.
+                pass
 
     return best_sim
 

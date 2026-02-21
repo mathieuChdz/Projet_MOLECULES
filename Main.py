@@ -230,7 +230,7 @@ def save_groups_json(signatures):
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
 
-def compute_similarity_matrix(all_molecules):
+def compute_similarity_matrix(all_molecules, compute3D=True):
     n = len(all_molecules)
     print(f"[*] Calcul Similarité (2D + 3D) pour {n} molécules...")
 
@@ -238,8 +238,10 @@ def compute_similarity_matrix(all_molecules):
     for name in tqdm(all_molecules, desc="Génération 3D & FP", unit="mol"):
         path = os.path.join(MOL_DIR, f"{name}.mol")
         vec = vecteur_fingerprint2D(path)
-        # On génère TOUJOURS la 3D pour la matrice universelle
-        mol_3d, ids = genere_shape(path)
+        if compute3D:
+            mol_3d, ids = genere_shape(path)
+        else:
+            mol_3d, ids = None, None
         precomputed_data.append((vec, mol_3d, ids))
 
     print(f"\n[*] Calcul de la matrice croisée...")
@@ -264,7 +266,9 @@ def compute_similarity_matrix(all_molecules):
                     try:
                         val = get_similarities(data_i, data_j)
                         matrix[name_i][name_j] = val
-                    except Exception:
+                    except Exception as e:
+                        print(f"\n[!] Erreur de calcul entre {
+                            name_i} et {name_j} : {e}")
                         matrix[name_i][name_j] = {"sim2d": 0.0, "sim3d": 0.0}
                     pbar.update(1)
 
@@ -393,6 +397,11 @@ if __name__ == "__main__":
         print("[!] Erreur : La valeur de l'argument -a doit être comprise entre 0 et 1.")
         sys.exit(1)
 
+    if alpha_arg == 1:
+        compute3D = False
+    else:
+        compute3D = True
+
     global DATA_DIR, MOL_DIR, GRAPH_DIR, IMG_DIR, GROUPEMENT_DIR, REPORT_FILE, CACHE_DIR
     DATA_DIR = os.path.join(args.output, "data")
     MOL_DIR = os.path.join(DATA_DIR, "molecules")
@@ -439,7 +448,7 @@ if __name__ == "__main__":
         groups, all_mols, signatures = find_isomorphs()
         save_cache_base(all_mols, groups, signatures)
 
-        sim_matrix = compute_similarity_matrix(all_mols)
+        sim_matrix = compute_similarity_matrix(all_mols, compute3D)
         save_cache_matrix(sim_matrix)
 
     clusters_dict, dendro_html = generate_clustering(
