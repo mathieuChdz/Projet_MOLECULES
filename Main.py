@@ -1,3 +1,6 @@
+from scipy.cluster.hierarchy import linkage, fcluster
+import plotly.graph_objects as go  # <-- À ajouter en haut de ton script
+from Distance import vecteur_fingerprint2D, score, genere_shape
 import os
 import sys
 import requests
@@ -11,10 +14,11 @@ from rdkit import Chem
 from rdkit.Chem import Draw, AllChem
 from jinja2 import Environment, FileSystemLoader
 import argparse
+import plotly.figure_factory as ff
+import numpy as np
+from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+from scipy.spatial.distance import squareform
 import json
-
-# Import modules
-from Distance import vecteur_fingerprint2D, score, genere_shape
 
 # Configuration
 NAUTY_DIR = "nauty2_9_3"
@@ -246,11 +250,88 @@ def compute_similarity_matrix(all_molecules):
     return matrix
 
 
-def generate_report(groups, all_molecules, similarity_matrix):
+def generate_clustering(all_molecules, sim_matrix, num_clusters=23):
+    n = len(all_molecules)
+
+    if num_clusters > n:
+        print(f"[!] Attention : Seulement {n} molécules trouvées. "
+              f"Réduction du nombre de clusters de {num_clusters} à {n}.")
+        num_clusters = n
+
+    D = np.zeros((n, n))
+    for i in range(n):
+        for j in range(n):
+            D[i, j] = 1.0 - sim_matrix[all_molecules[i]][all_molecules[j]]
+
+    np.fill_diagonal(D, 0)
+    D = (D + D.T) / 2.0
+    condensed = squareform(D)
+    Z = linkage(condensed, method='average')
+    seuil_couleur = Z[-num_clusters + 1, 2] - 1e-5
+
+    fig = ff.create_dendrogram(
+        np.zeros((n, 1)),
+        labels=all_molecules,
+        linkagefun=lambda x: Z,
+        color_threshold=seuil_couleur
+    )
+
+    tickvals = fig.layout.xaxis.tickvals
+    ticktext = fig.layout.xaxis.ticktext
+
+    fig.add_trace(go.Scatter(
+        x=tickvals,
+        y=[0] * len(tickvals),
+        mode='markers',
+        marker=dict(symbol='square', size=12, color='#007bff',
+                    line=dict(color='white', width=1)),
+        text=ticktext,   
+        hoverinfo='text',
+        name='CarresCliquables'
+    ))
+
+    fig.update_layout(
+        title=f"Clustering Hiérarchique ({num_clusters} Clusters)",
+        xaxis=dict(
+            showticklabels=False,
+            ticks='',
+            title=""
+        ),
+        yaxis=dict(
+            title="Distance moléculaire",
+            showgrid=True, gridwidth=1, gridcolor='LightGray',
+            zeroline=True, zerolinewidth=2, zerolinecolor='black'
+        ),
+        width=None,
+        height=700,
+        hovermode='closest',
+        plot_bgcolor='white',
+        showlegend=False
+    )
+
+    dendrogram_html = fig.to_html(
+        full_html=False, include_plotlyjs='cdn', div_id="plotly_dendrogram"
+    )
+
+    clusters_assign = fcluster(Z, num_clusters, criterion='maxclust')
+    clusters_data = []
+    for cluster_id in range(1, num_clusters + 1):
+        members = [all_molecules[i]
+                   for i in range(n) if clusters_assign[i] == cluster_id]
+        if members:
+            clusters_data.append(
+                {'id': cluster_id, 'taille': len(members), 'molecules': members})
+
+    sorted_clusters = sorted(
+        clusters_data, key=lambda x: x['taille'], reverse=True)
+
+    return sorted_clusters, dendrogram_html
+
+
+def generate_report(groups, all_molecules, similarity_matrix, clusters_data, dendrogram_html):
     print("[*] Génération du rapport HTML via Jinja2...")
     now = time.strftime("%d/%m/%Y %H:%M:%S")
 
-    # Configuration de Jinja2 pour charger le fichier template.html
     file_loader = FileSystemLoader('.')
     env = Environment(loader=file_loader)
 
@@ -261,16 +342,15 @@ def generate_report(groups, all_molecules, similarity_matrix):
               TEMPLATE_FILE}'. Vérifie qu'il est dans le dossier.")
         sys.exit(1)
 
-    # On prépare les données à envoyer au template
-    # Jinja fera le travail de boucle et d'affichage
     output = template.render(
         now=now,
         groups=groups,
         all_molecules=all_molecules,
-        matrix=similarity_matrix
+        matrix=similarity_matrix,
+        clusters=clusters_data,
+        dendrogram_html=dendrogram_html
     )
 
-    # Écriture du fichier final
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
         f.write(output)
 
@@ -312,6 +392,8 @@ if __name__ == "__main__":
 
     sim_matrix = compute_similarity_matrix(all_mols)
 
-    generate_report(groups, all_mols, sim_matrix)
-
+    clusters_dict, dendro_html = generate_clustering(
+        all_mols, sim_matrix, num_clusters=23)
+  
     save_groups_json(signatures=signatures)
+    generate_report(groups, all_mols, sim_matrix, clusters_dict, dendro_html)
