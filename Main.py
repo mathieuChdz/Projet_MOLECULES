@@ -225,7 +225,10 @@ def compute_similarity_matrix(all_molecules, alpha=0.5):
     for name in tqdm(all_molecules, desc="Génération 3D & FP", unit="mol"):
         path = os.path.join(MOL_DIR, f"{name}.mol")
         vec = vecteur_fingerprint2D(path)
-        mol_3d, ids = genere_shape(path)
+        if alpha < 1:
+            mol_3d, ids = genere_shape(path)
+        else:
+            mol_3d, ids = None, None
         precomputed_data.append((vec, mol_3d, ids))
 
     print(f"\n[*] Calcul de la matrice croisée...")
