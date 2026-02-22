@@ -339,20 +339,25 @@ def generate_clustering(all_molecules, sim_matrix, alpha, num_clusters=23):
 
 def get_combined_matrix(sim_matrix, alpha, all_molecules):
     """
-    Combine les scores 2D et 3D en une matrice simple (flottants) 
-    pour éviter de casser le template HTML Jinja.
+    Combine les scores 2D et 3D en une matrice contenant tous les détails 
+    pour ne pas casser le template HTML Jinja.
     """
     combined = {}
     for m1 in all_molecules:
         combined[m1] = {}
         for m2 in all_molecules:
             scores = sim_matrix[m1][m2]
-            combined[m1][m2] = alpha * scores["sim2d"] + \
+            score_final = alpha * scores["sim2d"] + \
                 (1 - alpha) * scores["sim3d"]
+            combined[m1][m2] = {
+                "score": score_final,
+                "sim2d": scores["sim2d"],
+                "sim3d": scores["sim3d"]
+            }
     return combined
 
 
-def generate_report(groups, all_molecules, combined_matrix, clusters_data, dendrogram_html):
+def generate_report(groups, all_molecules, combined_matrix, clusters_data, dendrogram_html, alpha):
     print("[*] Génération du rapport HTML via Jinja2...")
     now = time.strftime("%d/%m/%Y %H:%M:%S")
     file_loader = FileSystemLoader('.')
@@ -367,7 +372,8 @@ def generate_report(groups, all_molecules, combined_matrix, clusters_data, dendr
 
     output = template.render(
         now=now, groups=groups, all_molecules=all_molecules,
-        matrix=combined_matrix, clusters=clusters_data, dendrogram_html=dendrogram_html
+        matrix=combined_matrix, clusters=clusters_data, dendrogram_html=dendrogram_html,
+        alpha=alpha
     )
 
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
@@ -458,4 +464,5 @@ if __name__ == "__main__":
     matrice_html = get_combined_matrix(sim_matrix, alpha_arg, all_mols)
 
     save_groups_json(signatures=signatures)
-    generate_report(groups, all_mols, matrice_html, clusters_dict, dendro_html)
+    generate_report(groups, all_mols, matrice_html,
+                    clusters_dict, dendro_html, alpha_arg)

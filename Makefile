@@ -23,7 +23,7 @@ OPT_O         = $(if $(OUTPUT),-o $(OUTPUT),)
 run: $(EXEC)
 	@if [ -z "$(HC)" ]; then \
 		echo "Erreur : Tu dois fournir le paramètre HC (nombre de clusters)."; \
-		echo "Exemple : make run SDF_FILE='chemin/vers/fichier.sdf' HC=5"; \
+		echo "Exemple : make run SDF_FILE='chemin/vers/fichier.sdf' A=0.5 HC=5 OUTPUT='output'"; \
 		exit 1; \
 	fi
 	@if [ -n "$(URL)" ]; then \

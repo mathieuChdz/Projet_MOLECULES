@@ -1,6 +1,7 @@
 from rdkit import Chem
 from rdkit.Chem import AllChem, DataStructs, rdMolAlign, rdShapeHelpers, Descriptors, Fragments, rdFingerprintGenerator
 import inspect
+from tqdm import tqdm
 
 
 def get_extended_fingerprint(mol, radius=2, nBits=2048):
@@ -76,24 +77,37 @@ def genere_shape(mol_path, n=20):
         params.useRandomCoords = True
         params.maxIterations = 1000
         params.pruneRmsThresh = 0.3
-        ids = list(AllChem.EmbedMultipleConfs(
-            m_h, numConfs=n, params=params))
+
+        num_heavy = m_h.GetNumHeavyAtoms()
+        is_large = num_heavy > 50
+        ids = []
+
+        desc_gen = f"Génération 3D ({num_heavy} atomes)"
+        for i in tqdm(range(n), desc=desc_gen, leave=False, disable=not is_large):
+            cid = AllChem.EmbedMolecule(m_h, params=params)
+            if cid >= 0:
+                ids.append(cid)
 
         try:
             nb_conf_keep = 6
-            res = AllChem.UFFOptimizeMoleculeConfs(m_h, numThreads=0)
-            ids = sorted(ids, key=lambda cid: res[cid][1])[
-                :min(nb_conf_keep, len(ids))]
-            valid_ids = []
-            for cid in ids:
+            valid_confs = []
+
+            desc_opt = f"Optimisation UFF ({len(ids)} confs)"
+            for cid in tqdm(ids, desc=desc_opt, leave=False, disable=not is_large):
                 try:
-                    AllChem.UFFOptimizeMolecule(m_h, confId=cid)
-                    valid_ids.append(cid)
-                except (ValueError, RuntimeError, Exception):
+                    ff = AllChem.UFFGetMoleculeForceField(m_h, confId=cid)
+                    if ff:
+                        ff.Minimize()
+                        energy = ff.CalcEnergy()
+                        valid_confs.append((cid, energy))
+                except Exception:
                     pass
-            ids = valid_ids
+
+            valid_confs.sort(key=lambda x: x[1])
+            ids = [c[0] for c in valid_confs[:nb_conf_keep]]
+
         except Exception:
-            pass
+            ids = []
 
     return m_h, ids
 
