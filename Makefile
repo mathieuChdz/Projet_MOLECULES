@@ -10,10 +10,10 @@ CFLAGS        = -O3 -I$(NAUTY_DIR)
 LDFLAGS       = $(NAUTY_LIB)
 
 EXEC          = Check_iso
-SRC           = Check_iso.c
-REPORT        = resultats.html
+SRC           = src/Check_iso.c
+REPORT        = src/resultats.html
 ARCHIVE_NAME  = projet_code.zip
-SRC_FILES     = Main.py Check_iso.c Makefile Distance.py template.html
+SRC_FILES     = src/Main.py src/Check_iso.c Makefile src/Distance.py src/template.html
 
 OPT_A         = $(if $(A),-a $(A),)
 OPT_O         = $(if $(OUTPUT),-o $(OUTPUT),)
@@ -53,16 +53,20 @@ $(EXEC): $(SRC) $(NAUTY_LIB)
 
 $(NAUTY_LIB):
 	@echo "--- Téléchargement ---"
-	wget $(NAUTY_URL)
+	@if [ ! -f "$(NAUTY_ARCHIVE)" ]; then \
+		echo "Téléchargement de $(NAUTY_ARCHIVE)"; \
+		curl -L -o "$(NAUTY_ARCHIVE)" "$(NAUTY_URL)"; \
+	else \
+		echo "Archive déjà présente : $(NAUTY_ARCHIVE)"; \
+	fi
 	@echo "--- Extraction de Nauty ---"
-	rm -rf $(NAUTY_DIR)
-	tar xvzf $(NAUTY_ARCHIVE)
-	touch $(NAUTY_DIR)
-	rm $(NAUTY_ARCHIVE)
+	rm -rf "$(NAUTY_DIR)"
+	tar xvzf "$(NAUTY_ARCHIVE)"
 	@echo "--- Configuration de Nauty ---"
-	cd $(NAUTY_DIR) && ./configure
+	cd "$(NAUTY_DIR)" && ./configure
 	@echo "--- Compilation de Nauty ---"
-	cd $(NAUTY_DIR) && $(MAKE)
+	cd "$(NAUTY_DIR)" && $(MAKE)
+	@echo "--- OK : $(NAUTY_LIB) ---"
 
 zip:
 	rm -f $(EXEC) $(EXEC).exe $(REPORT) db_molecules.sdf

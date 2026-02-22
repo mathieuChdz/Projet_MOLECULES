@@ -5,7 +5,8 @@ from Distance import Tanimoto2D, ShapeTanimoto, score
 
 def run_test():
 
-    MOL_DIR = r"data/molecules"
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    MOL_DIR = os.path.join(BASE_DIR, "data", "molecules")
     mol_files = [f for f in os.listdir(MOL_DIR) if f.endswith(".mol")]
 
     ref_mol = os.path.join(MOL_DIR, mol_files[0])

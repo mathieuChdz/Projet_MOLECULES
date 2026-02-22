@@ -10,7 +10,7 @@ from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 from scipy.spatial.distance import squareform
 import matplotlib.pyplot as plt
 
-MOL_DIR = "data/molecules"
+MOL_DIR = "../data/molecules"
 OUTPUT_DIR = "clustering_results"
 
 def main():
