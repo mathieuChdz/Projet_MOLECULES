@@ -28,17 +28,17 @@ run: $(EXEC)
 	fi
 	@if [ -n "$(URL)" ]; then \
 		echo "--- Lancement avec l'URL ---"; \
-		$(PYTHON) Main.py "$(URL)" $(OPT_A) $(OPT_O) -hc $(HC); \
+		$(PYTHON) src/Main.py "$(URL)" $(OPT_A) $(OPT_O) -hc $(HC); \
 	elif [ -n "$(SDF_FILE)" ]; then \
 		echo "--- Lancement avec le fichier local ---"; \
-		$(PYTHON) Main.py "$(SDF_FILE)" $(OPT_A) $(OPT_O) -hc $(HC); \
+		$(PYTHON) src/Main.py "$(SDF_FILE)" $(OPT_A) $(OPT_O) -hc $(HC); \
 	elif [ -n "$(DATABASE)" ]; then \
 		echo "--- Extraction des IDs depuis $(DATABASE) ---"; \
 		IDS=$$(grep -E '^[0-9]+,' $(DATABASE) | cut -d',' -f1 | paste -sd, -); \
 		echo "--- Téléchargement du fichier SDF via PubChem ---"; \
 		curl -X POST -d "cid=$$IDS" "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/SDF" -o db_molecules.sdf; \
 		echo "--- Lancement du script sur les molécules téléchargées ---"; \
-		$(PYTHON) Main.py db_molecules.sdf $(OPT_A) $(OPT_O) -hc $(HC); \
+		$(PYTHON) src/Main.py db_molecules.sdf $(OPT_A) $(OPT_O) -hc $(HC); \
 		rm db_molecules.sdf; \
 	else \
 		echo "Erreur : Tu dois fournir soit URL, soit SDF_FILE, soit DATABASE."; \

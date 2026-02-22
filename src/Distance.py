@@ -1,75 +1,160 @@
 from rdkit import Chem
-from rdkit.Chem import AllChem, DataStructs,rdMolAlign,rdShapeHelpers
+from rdkit.Chem import AllChem, DataStructs, rdMolAlign, rdShapeHelpers, Descriptors, Fragments, rdFingerprintGenerator
+import inspect
+from tqdm import tqdm
+import itertools
 
 
+def get_extended_fingerprint(mol, radius=2, nBits=2048):
+    """
+    Génère un fingerprint hybride : Morgan + Groupes Fonctionnels (Ertl) + Polarité.
+    """
 
-def Tanimoto2D(m1, m2):
-    mol1 = Chem.MolFromMolFile(m1)
-    mol2 = Chem.MolFromMolFile(m2)
+    mfgen = rdFingerprintGenerator.GetMorganGenerator(
+        radius=radius, fpSize=nBits)
+    morgan_fp = mfgen.GetFingerprint(mol)
 
-    if mol1 is None or mol2 is None: return 0.0
+    fragment_functions = [func for name, func in inspect.getmembers(
+        Fragments, inspect.isfunction) if name.startswith('fr_')]
 
-    fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1, 2, nBits=2048)
-    fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2, 2, nBits=2048)
+    num_frag_bits = len(fragment_functions)
 
-    return DataStructs.TanimotoSimilarity(fp1, fp2)
+    total_size = nBits + num_frag_bits + 1
 
-def ShapeTanimoto(m1, m2, n=20):
-    #n cest le nombre de generation de la structure 3D
+    combined_fp = DataStructs.ExplicitBitVect(total_size)
 
-    mol1 = Chem.MolFromMolFile(m1)
-    mol2 = Chem.MolFromMolFile(m2)
+    on_bits = morgan_fp.GetOnBits()
+    for bit in on_bits:
+        combined_fp.SetBit(bit)
 
-    if mol1 is None or mol2 is None: return 0.0
+    offset = nBits
+    for i, func in enumerate(fragment_functions):
+        if func(mol) > 0:
+            combined_fp.SetBit(offset + i)
 
-    #Ajout des Hydrogene pour la structure 3D
-    m1 = Chem.AddHs(mol1)
-    m2 = Chem.AddHs(mol2)  
+    offset_polar = nBits + num_frag_bits
+    tpsa = Descriptors.TPSA(mol)
 
-    #algo de gen de structure 3D
-    params = AllChem.ETKDGv3()
-    #Generation de la structure 3D , n fois et on recupere les ids de chaque structure 3D generer pour les deux molecule
-    params.pruneRmsThresh = 0.3  # 0.3–1.0 typiquement
-    ids1 = AllChem.EmbedMultipleConfs(m1, numConfs=n, params=params)
-    ids2 = AllChem.EmbedMultipleConfs(m2, numConfs=n, params=params)
+    is_polar = tpsa > 0
+    if is_polar:
+        combined_fp.SetBit(offset_polar)
 
-    if len(ids1) == 0 or len(ids2) == 0: return 0.0
+    return combined_fp
 
-    #Universal Force Field optimisation pour les deux molecule pour stabliser la structure 3D
-    for id in ids1:
-        AllChem.UFFOptimizeMolecule(m1, confId=id)
-    for id in ids2:
-        AllChem.UFFOptimizeMolecule(m2, confId=id)
 
-    
-    #ON PEUT UTILISER CETTE STRATEGIE POUR AVOIR UNE COMPLEXITE EN TEMPS CONSTANTE AU LIEU DE N^2 EN GARDANT SEULEMENT LES K MEILLEURS CONFORMERES (basé sur les énergies).
-    nb_conf_keep = 6
+def Tanimoto2D(data1, data2):
+    return DataStructs.TanimotoSimilarity(data1[0], data2[0])
 
-    # Optimisation batch + énergies
-    res1 = AllChem.UFFOptimizeMoleculeConfs(m1, numThreads=0)
-    res2 = AllChem.UFFOptimizeMoleculeConfs(m2, numThreads=0)
 
-    # Garder les k conformères les plus bas énergie
-    ids1 = sorted(ids1, key=lambda cid: res1[cid][1])[:min(nb_conf_keep, len(ids1))]
-    ids2 = sorted(ids2, key=lambda cid: res2[cid][1])[:min(nb_conf_keep, len(ids2))]
+def vecteur_fingerprint2D(mol_path):
+    mol = Chem.MolFromMolFile(mol_path)
+    return get_extended_fingerprint(mol)
 
-    # print("nb conforeres au total : ", len(ids1), len(ids2), "total : ", len(ids1)*len(ids2))
+
+def genere_shape(mol_path, n=20):
+    """
+    Génère la 3D uniquement si la molécule n'en possède pas déjà une.
+    RENVOIE L'OBJET MOLÉCULE + LES IDS.
+    """
+    mol = Chem.MolFromMolFile(mol_path, removeHs=False)
+    if mol is None:
+        return None, []
+
+    has_3d = False
+    if mol.GetNumConformers() > 0:
+        conf = mol.GetConformer()
+        if conf.Is3D():
+            for i in range(mol.GetNumAtoms()):
+                if conf.GetAtomPosition(i).z != 0.0:
+                    has_3d = True
+                    break
+
+    m_h = Chem.AddHs(mol, addCoords=True)
+
+    if has_3d:
+        ids = [0]
+    else:
+        params = AllChem.ETKDGv3()
+        params.useRandomCoords = True
+        params.maxIterations = 1000
+        params.pruneRmsThresh = 0.3
+
+        num_heavy = m_h.GetNumHeavyAtoms()
+        is_large = num_heavy > 50
+        ids = []
+
+        desc_gen = f"Génération 3D ({num_heavy} atomes)"
+        for i in tqdm(range(n), desc=desc_gen, leave=False, disable=not is_large):
+            cid = AllChem.EmbedMolecule(m_h, params=params)
+            if cid >= 0:
+                ids.append(cid)
+
+        try:
+            nb_conf_keep = 6
+            valid_confs = []
+
+            desc_opt = f"Optimisation UFF ({len(ids)} confs)"
+            for cid in tqdm(ids, desc=desc_opt, leave=False, disable=not is_large):
+                try:
+                    ff = AllChem.UFFGetMoleculeForceField(m_h, confId=cid)
+                    if ff:
+                        ff.Minimize()
+                        energy = ff.CalcEnergy()
+                        valid_confs.append((cid, energy))
+                except Exception:
+                    pass
+
+            valid_confs.sort(key=lambda x: x[1])
+            ids = [c[0] for c in valid_confs[:nb_conf_keep]]
+
+        except Exception:
+            ids = []
+
+    return m_h, ids
+
+
+def ShapeTanimoto(data1, data2):
+    m1 = data1[1]
+    m2 = data2[1]
+
+    if m1 is None or m2 is None or not data1[2] or not data2[2]:
+        return 0.0
 
     best_sim = 0.0
-    for id1 in ids1:
-        for id2 in ids2:
-            #aligner leur strcture , m2 sur m1 on utilise l'algorithme O3A pour aligner les deux molecule en utilisant les id
+
+    conformer_pairs = list(itertools.product(data1[2], data2[2]))
+
+    show_bar = len(conformer_pairs) > 1
+
+    for id1, id2 in tqdm(conformer_pairs, desc="Alignement 3D", leave=False, disable=not show_bar):
+        try:
             pyO3A = rdMolAlign.GetO3A(m2, m1, prbCid=id2, refCid=id1)
             pyO3A.Align()
-            #distance volumique
-            dist = rdShapeHelpers.ShapeTanimotoDist(m1, m2, confId1=id1, confId2=id2)
-            sim=1 - dist
+
+            dist = rdShapeHelpers.ShapeTanimotoDist(
+                m1, m2, confId1=id1, confId2=id2)
+            sim = 1.0 - dist
+
             if sim > best_sim:
                 best_sim = sim
+        except Exception:
+            pass
 
     return best_sim
-    
 
 
-def score(m1, m2, a):
-    return  a * Tanimoto2D(m1, m2) + (1-a) * ShapeTanimoto(m1, m2)
+def get_similarities(data1, data2):
+    """
+    Calcule et renvoie séparément la similarité 2D et 3D dans un dictionnaire.
+    """
+    sim2d = Tanimoto2D(data1, data2)
+    sim3d = 0.0
+
+    # On calcule la 3D uniquement si les deux molécules ont pu générer des coordonnées 3D
+    if data1[1] is not None and data2[1] is not None:
+        sim3d = ShapeTanimoto(data1, data2)
+
+    return {
+        "sim2d": float(sim2d),
+        "sim3d": float(sim3d)
+    }

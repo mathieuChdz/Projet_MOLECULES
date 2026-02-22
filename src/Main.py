@@ -268,8 +268,7 @@ def compute_similarity_matrix(all_molecules, compute3D=True):
                         val = get_similarities(data_i, data_j)
                         matrix[name_i][name_j] = val
                     except Exception as e:
-                        print(f"\n[!] Erreur de calcul entre {
-                            name_i} et {name_j} : {e}")
+                        print(f"\n[!] Erreur de calcul entre {name_i} et {name_j} : {e}")
                         matrix[name_i][name_j] = {"sim2d": 0.0, "sim3d": 0.0}
                     pbar.update(1)
 
@@ -280,8 +279,7 @@ def generate_clustering(all_molecules, sim_matrix, alpha, num_clusters=23):
     n = len(all_molecules)
 
     if num_clusters > n:
-        print(f"[!] Attention : Seulement {
-              n} molécules trouvées. Réduction du nombre de clusters à {n}.")
+        print(f"[!] Attention : Seulement {n} molécules trouvées. Réduction du nombre de clusters à {n}.")
         num_clusters = n
 
     D = np.zeros((n, n))
@@ -313,8 +311,7 @@ def generate_clustering(all_molecules, sim_matrix, alpha, num_clusters=23):
     ))
 
     fig.update_layout(
-        title=f"Clustering Hiérarchique ({
-            num_clusters} Clusters) - Alpha={alpha}",
+        title=f"Clustering Hiérarchique ({num_clusters} Clusters) - Alpha={alpha}",
         xaxis=dict(showticklabels=False, ticks='', title=""),
         yaxis=dict(title="Distance moléculaire", showgrid=True, gridwidth=1,
                    gridcolor='LightGray', zeroline=True, zerolinewidth=2, zerolinecolor='black'),
@@ -367,8 +364,7 @@ def generate_report(groups, all_molecules, combined_matrix, clusters_data, dendr
     try:
         template = env.get_template(TEMPLATE_FILE)
     except Exception as e:
-        print(f"[!] Erreur : Impossible de trouver '{
-              TEMPLATE_FILE}'. Vérifie qu'il est dans le dossier.")
+        print(f"[!] Erreur : Impossible de trouver '{TEMPLATE_FILE}'. Vérifie qu'il est dans le dossier.")
         sys.exit(1)
 
     output = template.render(
@@ -421,8 +417,7 @@ if __name__ == "__main__":
     all_mols, groups, signatures, sim_matrix = load_cache()
 
     if all_mols is not None:
-        print(f"[*] Cache de base trouvé dans '{
-              DATA_DIR}'. Réutilisation de l'extraction SDF et de l'analyse Nauty...")
+        print(f"[*] Cache de base trouvé dans '{DATA_DIR}'. Réutilisation de l'extraction SDF et de l'analyse Nauty...")
         setup(force_clean=False)
 
         if sim_matrix is None:
@@ -445,8 +440,7 @@ if __name__ == "__main__":
             source_path = os.path.join(DATA_DIR, "source.sdf")
             shutil.copy(input_arg, source_path)
         else:
-            print(f"[!] Erreur : L'argument '{
-                  input_arg}' n'est ni une URL valide ni un fichier existant.")
+            print(f"[!] Erreur : L'argument '{input_arg}' n'est ni une URL valide ni un fichier existant.")
             sys.exit(1)
 
         conversion_tasks = split_molecules(source_path)
