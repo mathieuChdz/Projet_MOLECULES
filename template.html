@@ -45,13 +45,17 @@
         .comp-item img { width: 100%; max-width: 300px; border: 1px solid #eee; border-radius: 8px; padding: 10px; background: white; }
         .comp-name { font-weight: bold; margin-top: 10px; word-break: break-word; color: #2c3e50; text-transform: capitalize; }
         .comp-score-box { text-align: center; margin: 20px 0; background: #ecf0f1; padding: 15px; border-radius: 8px; }
-        .comp-score-val { font-size: 2.5em; font-weight: bold; color: #27ae60; }
+        .comp-score-val { font-size: 2.5em; font-weight: bold; color: #27ae60; margin-bottom: 5px; }
+        .comp-details { font-size: 0.9em; color: #7f8c8d; border-top: 1px solid #bdc3c7; padding-top: 10px; display: inline-block; }
     </style>
     <script>
-        function showModal(name1, name2, score, img1, img2) {
+        function showModal(name1, name2, score, sim2d, sim3d, alpha, img1, img2) {
             document.getElementById('m-name1').innerText = name1;
             document.getElementById('m-name2').innerText = name2;
             document.getElementById('m-score').innerText = score;
+            document.getElementById('m-sim2d').innerText = sim2d;
+            document.getElementById('m-sim3d').innerText = sim3d;
+            document.getElementById('m-alpha').innerText = alpha;
             document.getElementById('m-img1').src = img1;
             document.getElementById('m-img2').src = img2;
             document.getElementById('myModal').style.display = "block";
@@ -74,8 +78,13 @@
             <span class="close" onclick="closeModal()">&times;</span>
             <h2 style="text-align:center; border:none; margin-top:0;">Comparaison Détaillée</h2>
             <div class="comp-score-box">
-                <div>Score de Similarité</div>
+                <div>Score Global de Similarité</div>
                 <div id="m-score" class="comp-score-val">0.00</div>
+                <div class="comp-details">
+                    <strong>2D (Tanimoto) :</strong> <span id="m-sim2d" style="color: #2980b9;">0.00</span> &nbsp;|&nbsp;
+                    <strong>3D (Forme) :</strong> <span id="m-sim3d" style="color: #e67e22;">0.00</span> &nbsp;|&nbsp;
+                    <strong>&alpha; :</strong> <span id="m-alpha">0.5</span>
+                </div>
             </div>
             <div class="comparison-container">
                 <div class="comp-item">
@@ -117,12 +126,18 @@
                     <th title="{{ clean_m1 }}">{{ clean_m1[:20] }}</th>
                     {% for m2 in all_molecules %}
                         {% set clean_m2 = m2.split('_', 3)[-1] | replace('_', ' ') %}
-                        {% set val = matrix[m1][m2] %}
+                        
+                        {% set cell = matrix[m1][m2] %}
+                        {% set val = cell['score'] %}
+                        {% set s2d = cell['sim2d'] %}
+                        {% set s3d = cell['sim3d'] %}
+                        
                         {% set cls = "d-high" if val >= 0.95 else "d-med" if val >= 0.7 else "d-low" if val < 0.3 else "" %}
                         {% set img1 = "data/images/" + m1 + ".png" %}
                         {% set img2 = "data/images/" + m2 + ".png" %}
+                        
                         <td class="clickable {{ cls }}" 
-                            onclick="showModal('{{ clean_m1|replace("'", "\\'") }}', '{{ clean_m2|replace("'", "\\'") }}', '{{ "%.2f"|format(val) }}', '{{ img1 }}', '{{ img2 }}')">
+                            onclick="showModal('{{ clean_m1|replace("'", "\\'") }}', '{{ clean_m2|replace("'", "\\'") }}', '{{ "%.2f"|format(val) }}', '{{ "%.2f"|format(s2d) }}', '{{ "%.2f"|format(s3d) }}', '{{ alpha }}', '{{ img1 }}', '{{ img2 }}')">
                             {{ "%.2f"|format(val) }}
                         </td>
                     {% endfor %}
