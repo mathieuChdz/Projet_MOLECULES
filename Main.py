@@ -24,6 +24,7 @@ import json
 # Configuration
 TEMPLATE_FILE = "template.html"
 EXEC_CHECK_ISO = "./Check_iso"
+NBR_CONFOMERE = 6
 
 
 def setup(force_clean=False):
@@ -239,7 +240,7 @@ def compute_similarity_matrix(all_molecules, compute3D=True):
         path = os.path.join(MOL_DIR, f"{name}.mol")
         vec = vecteur_fingerprint2D(path)
         if compute3D:
-            mol_3d, ids = genere_shape(path)
+            mol_3d, ids = genere_shape(path, NBR_CONFOMERE)
         else:
             mol_3d, ids = None, None
         precomputed_data.append((vec, mol_3d, ids))
