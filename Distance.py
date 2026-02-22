@@ -2,6 +2,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem, DataStructs, rdMolAlign, rdShapeHelpers, Descriptors, Fragments, rdFingerprintGenerator
 import inspect
 from tqdm import tqdm
+import itertools
 
 
 def get_extended_fingerprint(mol, radius=2, nBits=2048):
@@ -116,31 +117,28 @@ def ShapeTanimoto(data1, data2):
     m1 = data1[1]
     m2 = data2[1]
 
-    # Sécurité si les molécules n'ont pas de 3D
-    if m1 is None or m2 is None:
+    if m1 is None or m2 is None or not data1[2] or not data2[2]:
         return 0.0
 
     best_sim = 0.0
 
-    # Comparaison N x N conformères
-    for id1 in data1[2]:
-        for id2 in data2[2]:
-            try:
-                # O3A : Open3D Align. Aligne m2 sur m1.
-                pyO3A = rdMolAlign.GetO3A(m2, m1, prbCid=id2, refCid=id1)
-                pyO3A.Align()
+    conformer_pairs = list(itertools.product(data1[2], data2[2]))
 
-                # Calcul de la similarité de forme
-                dist = rdShapeHelpers.ShapeTanimotoDist(
-                    m1, m2, confId1=id1, confId2=id2)
-                sim = 1.0 - dist
+    show_bar = len(conformer_pairs) > 1
 
-                if sim > best_sim:
-                    best_sim = sim
-            except Exception:
-                # Si RDKit ne trouve pas les paramètres MMFF94 (ex: O2, CO),
-                # on ignore l'erreur. La similarité 3D restera à 0 pour ce conformère.
-                pass
+    for id1, id2 in tqdm(conformer_pairs, desc="Alignement 3D", leave=False, disable=not show_bar):
+        try:
+            pyO3A = rdMolAlign.GetO3A(m2, m1, prbCid=id2, refCid=id1)
+            pyO3A.Align()
+
+            dist = rdShapeHelpers.ShapeTanimotoDist(
+                m1, m2, confId1=id1, confId2=id2)
+            sim = 1.0 - dist
+
+            if sim > best_sim:
+                best_sim = sim
+        except Exception:
+            pass
 
     return best_sim
 
