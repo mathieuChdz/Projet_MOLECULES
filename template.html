@@ -13,14 +13,15 @@
         .mol-container { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
         .mol-item { width: 200px; background: white; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .mol-item img { width: 180px; height: 180px; object-fit: contain; }
-        .mol-link { display: block; margin-top: 8px; font-size: 0.8em; color: #2980b9; word-break: break-all; }
+        /* text-transform: capitalize ajoute une majuscule au début des mots */
+        .mol-link { display: block; margin-top: 8px; font-size: 0.8em; color: #2980b9; word-break: break-word; text-transform: capitalize; font-weight: bold; }
         .group-card { background: white; padding: 20px; margin-top: 20px; border-left: 5px solid #27ae60; border-radius: 5px; }
 
         /* Matrice */
         .matrix-wrapper { overflow-x: auto; background: white; padding: 15px; border-radius: 8px; margin-top: 20px; }
         table.matrix { border-collapse: collapse; width: 100%; font-size: 0.85em; }
         table.matrix th, table.matrix td { padding: 8px; text-align: center; border: 1px solid #dfe6e9; }
-        table.matrix th { background-color: #f8f9fa; min-width: 100px; }
+        table.matrix th { background-color: #f8f9fa; min-width: 100px; text-transform: capitalize; }
         th.rotate { height: auto; white-space: nowrap; padding: 10px; vertical-align: bottom; }
         th.rotate > div { transform: none; width: auto; }
 
@@ -41,8 +42,8 @@
         .close:hover { color: black; }
         .comparison-container { display: flex; justify-content: space-around; align-items: center; margin-top: 20px; flex-wrap: wrap; }
         .comp-item { width: 45%; text-align: center; }
-        .comp-item img { width: 100%; max-width: 300px; border: 1px solid #eee; border-radius: 8px; padding: 10px; }
-        .comp-name { font-weight: bold; margin-top: 10px; word-break: break-all; color: #2c3e50; }
+        .comp-item img { width: 100%; max-width: 300px; border: 1px solid #eee; border-radius: 8px; padding: 10px; background: white; }
+        .comp-name { font-weight: bold; margin-top: 10px; word-break: break-word; color: #2c3e50; text-transform: capitalize; }
         .comp-score-box { text-align: center; margin: 20px 0; background: #ecf0f1; padding: 15px; border-radius: 8px; }
         .comp-score-val { font-size: 2.5em; font-weight: bold; color: #27ae60; }
     </style>
@@ -78,12 +79,12 @@
             </div>
             <div class="comparison-container">
                 <div class="comp-item">
-                    <img id="m-img1" src="" alt="Molécule 1">
+                    <img id="m-img1" src="" onerror="this.onerror=null; this.src='https://placehold.co/300x300/eeeeee/95a5a6?text=Image+Indisponible';">
                     <div id="m-name1" class="comp-name">Nom 1</div>
                 </div>
                 <div style="font-size: 2em; color:#7f8c8d;">&harr;</div>
                 <div class="comp-item">
-                    <img id="m-img2" src="" alt="Molécule 2">
+                    <img id="m-img2" src="" onerror="this.onerror=null; this.src='https://placehold.co/300x300/eeeeee/95a5a6?text=Image+Indisponible';">
                     <div id="m-name2" class="comp-name">Nom 2</div>
                 </div>
             </div>
@@ -104,21 +105,24 @@
                 <tr>
                     <th></th>
                     {% for mol in all_molecules %}
-                    <th class="rotate"><div>{{ mol.split('_')[-1][:15] }}...</div></th>
+                    {% set clean_mol = mol.split('_', 3)[-1] | replace('_', ' ') %}
+                    <th class="rotate" title="{{ clean_mol }}"><div>{{ clean_mol[:15] }}...</div></th>
                     {% endfor %}
                 </tr>
             </thead>
             <tbody>
                 {% for m1 in all_molecules %}
+                {% set clean_m1 = m1.split('_', 3)[-1] | replace('_', ' ') %}
                 <tr>
-                    <th>{{ m1.split('_')[-1][:20] }}</th>
+                    <th title="{{ clean_m1 }}">{{ clean_m1[:20] }}</th>
                     {% for m2 in all_molecules %}
+                        {% set clean_m2 = m2.split('_', 3)[-1] | replace('_', ' ') %}
                         {% set val = matrix[m1][m2] %}
                         {% set cls = "d-high" if val >= 0.95 else "d-med" if val >= 0.7 else "d-low" if val < 0.3 else "" %}
                         {% set img1 = "data/images/" + m1 + ".png" %}
                         {% set img2 = "data/images/" + m2 + ".png" %}
                         <td class="clickable {{ cls }}" 
-                            onclick="showModal('{{ m1|replace("'", "") }}', '{{ m2|replace("'", "") }}', '{{ "%.2f"|format(val) }}', '{{ img1 }}', '{{ img2 }}')">
+                            onclick="showModal('{{ clean_m1|replace("'", "\\'") }}', '{{ clean_m2|replace("'", "\\'") }}', '{{ "%.2f"|format(val) }}', '{{ img1 }}', '{{ img2 }}')">
                             {{ "%.2f"|format(val) }}
                         </td>
                     {% endfor %}
@@ -135,9 +139,10 @@
         <b>Groupe {{ loop.index }}</b>
         <div class="mol-container">
             {% for m in grp %}
+            {% set clean_m = m.split('_', 3)[-1] | replace('_', ' ') %}
             <div class="mol-item">
-                <img src="data/images/{{ m }}.png">
-                <div class="mol-link">{{ " ".join(m.split('_')[3:]) }}</div>
+                <img src="data/images/{{ m }}.png" onerror="this.onerror=null; this.src='https://placehold.co/180x180/eeeeee/95a5a6?text=Image\\nIndisponible';">
+                <div class="mol-link" title="{{ clean_m }}">{{ clean_m }}</div>
             </div>
             {% endfor %}
         </div>
@@ -148,9 +153,10 @@
     <h2>📂 Toutes les molécules</h2>
     <div class="mol-container">
         {% for m in all_molecules %}
+        {% set clean_m = m.split('_', 3)[-1] | replace('_', ' ') %}
         <div class="mol-item">
-            <img src="data/images/{{ m }}.png">
-            <div class="mol-link">{{ m }}</div>
+            <img src="data/images/{{ m }}.png" onerror="this.onerror=null; this.src='https://placehold.co/180x180/eeeeee/95a5a6?text=Image\\nIndisponible';">
+            <div class="mol-link" title="{{ clean_m }}">{{ clean_m }}</div>
         </div>
         {% endfor %}
     </div>
@@ -171,9 +177,10 @@
         
         <div class="mol-container">
             {% for m in cluster.molecules %}
+            {% set clean_m = m.split('_', 3)[-1] | replace('_', ' ') %}
             <div class="mol-item" style="border: 1px solid #f39c12;">
-                <img src="data/images/{{ m }}.png">
-                <div class="mol-link" title="{{ m }}">{{ m.split('_', 2)[-1][:30] }}</div>
+                <img src="data/images/{{ m }}.png" onerror="this.onerror=null; this.src='https://placehold.co/180x180/eeeeee/95a5a6?text=Image\\nIndisponible';">
+                <div class="mol-link" title="{{ clean_m }}">{{ clean_m }}</div>
             </div>
             {% endfor %}
         </div>
@@ -185,7 +192,7 @@
 
 <div style="display: flex; gap: 20px; align-items: flex-start; margin-bottom: 40px;">
     
-    <div style="flex: 3; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+    <div style="flex: 3; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background-color: white;">
         {{ dendrogram_html | safe }}
     </div>
     
@@ -194,42 +201,38 @@
         <p style="font-size: 0.85em; color: #666;">Cliquez sur l'extrémité d'une branche (sur la ligne de la molécule au niveau 0) pour l'afficher ici.</p>
         
         <div id="mol-preview-container" style="display: none; margin-top: 20px;">
-            <h4 id="mol-name" style="word-wrap: break-word; color: #333; margin-bottom: 15px;"></h4>
-            <img id="mol-img" src="" alt="Molecule" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; background: white; padding: 10px;">
+            <h4 id="mol-name" style="word-wrap: break-word; color: #333; margin-bottom: 15px; text-transform: capitalize;"></h4>
+            <img id="mol-img" src="" onerror="this.onerror=null; this.src='https://placehold.co/180x180/eeeeee/95a5a6?text=Image\\nIndisponible';" alt="Molecule" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; background: white; padding: 10px;">
         </div>
     </div>
 </div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    // Récupère l'élément du graphique généré par Plotly
     var plotDiv = document.getElementById('plotly_dendrogram');
     
-    // Écouteur d'événement sur les clics Plotly
-    plotDiv.on('plotly_click', function(data) {
-        var point = data.points[0];
-        
-        // Dans un dendrogramme, les "feuilles" (les molécules) touchent l'axe Y à 0
-        // On vérifie qu'on a bien cliqué sur le bas d'une branche
-        if (point.y === 0) { 
-            // Plotly stocke les noms des molécules dans ticktext
-            var tickvals = plotDiv.layout.xaxis.tickvals;
-            var ticktext = plotDiv.layout.xaxis.ticktext;
+    if (plotDiv) {
+        plotDiv.on('plotly_click', function(data) {
+            var point = data.points[0];
             
-            // On trouve l'index du nom correspondant à la position X cliquée
-            var idx = tickvals.indexOf(point.x);
-            if (idx !== -1) {
-                var molName = ticktext[idx];
+            if (point.y === 0) { 
+                var tickvals = plotDiv.layout.xaxis.tickvals;
+                var ticktext = plotDiv.layout.xaxis.ticktext;
+                var idx = tickvals.indexOf(point.x);
                 
-                // On met à jour le panneau de droite
-                document.getElementById('mol-name').innerText = molName;
-                document.getElementById('mol-img').src = 'data/images/' + molName + '.png';
-                
-                // On rend le panneau visible
-                document.getElementById('mol-preview-container').style.display = 'block';
+                if (idx !== -1) {
+                    var molFileName = ticktext[idx];
+                    
+                    // Nettoie le nom côté Javascript pour l'affichage
+                    var cleanName = molFileName.split('_').slice(3).join(' ');
+                    
+                    document.getElementById('mol-name').innerText = cleanName;
+                    document.getElementById('mol-img').src = 'data/images/' + molFileName + '.png';
+                    document.getElementById('mol-preview-container').style.display = 'block';
+                }
             }
-        }
-    });
+        });
+    }
 });
 </script>
 </body>
