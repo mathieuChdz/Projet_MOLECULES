@@ -11,7 +11,7 @@
 
         /* Styles Molécules */
         .mol-container { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
-        .mol-item { width: 200px; background: white; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .mol-item { width: 200px; background: white; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s ease;}
         .mol-item img { width: 180px; height: 180px; object-fit: contain; }
         
         .mol-link { 
@@ -42,7 +42,7 @@
 
         /* MODAL (Popup) */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(2px); }
-        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; border-radius: 10px; position: relative; box-shadow: 0 4px 8px rgba(0,0,0,0.2); animation: fadeIn 0.3s; }
+        .modal-content { background-color: #fefefe; margin: 4% auto; padding: 20px; border: 1px solid #888; width: 85%; border-radius: 10px; position: relative; box-shadow: 0 4px 8px rgba(0,0,0,0.2); animation: fadeIn 0.3s; }
         @keyframes fadeIn { from {opacity: 0; transform: translateY(-20px);} to {opacity: 1; transform: translateY(0);} }
         .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
         .close:hover { color: black; }
@@ -57,6 +57,7 @@
     </style>
     <script>
         const molDataDict = {{ mol_data_json | safe }};
+        let currentMolKeyForModal = null; // Variable pour garder trace de la molécule active
 
         function showModal(name1, name2, score, sim2d, sim3d, alpha, img1, img2) {
             document.getElementById('m-name1').innerText = name1;
@@ -73,17 +74,17 @@
             document.getElementById('myModal').style.display = "none";
         }
 
+        // --- Modale de détails & Comparateur de Clusters ---
         function showMolDetailsModal(molKey, molCleanName) {
+            currentMolKeyForModal = molKey;
             document.getElementById('md-title').innerText = molCleanName;
             document.getElementById('md-img').src = 'data/images/' + molKey + '.png';
             
             const data = molDataDict[molKey];
             const infoList = document.getElementById('md-info-list');
-            const clustersList = document.getElementById('md-clusters-list');
             
+            // 1. Peupler les informations
             infoList.innerHTML = '';
-            clustersList.innerHTML = '';
-            
             if(data && data.metadata) {
                 for(const [k, v] of Object.entries(data.metadata)) {
                     if(v && v.trim() !== '') {
@@ -97,40 +98,83 @@
                 infoList.innerHTML = '<li>Aucune métadonnée disponible.</li>';
             }
             
+            // 2. Préparer les menus déroulants du comparateur
+            const sel1 = document.getElementById('compare-alpha-1');
+            const sel2 = document.getElementById('compare-alpha-2');
+            sel1.innerHTML = '';
+            sel2.innerHTML = '';
+
             if(data && data.clusters) {
-                for(const [alpha, mols] of Object.entries(data.clusters)) {
-                    let section = document.createElement('div');
-                    section.style.marginBottom = "20px";
-                    section.innerHTML = `<strong style="font-size: 1.1em; color: #d35400;">&alpha; = ${alpha}</strong> <span style="font-size:0.85em; color:#7f8c8d;">(${mols.length} molécule(s) dans le cluster)</span>`;
-                    
-                    let container = document.createElement('div');
-                    container.className = "mol-container";
-                    container.style.gap = "10px";
-                    container.style.marginTop = "10px";
-                    container.style.justifyContent = "flex-start";
-                    
-                    mols.forEach(m => {
-                        let parts = m.split('_');
-                        let cleanM = parts.slice(3).join(' ').replace(/_/g, ' ');
-                        let molDiv = document.createElement('div');
-                        molDiv.className = "mol-item";
-                        molDiv.style.width = "110px";
-                        molDiv.style.padding = "5px";
-                        
-                        molDiv.innerHTML = `
-                            <img src="data/images/${m}.png" style="width: 100px; height: 100px; object-fit: contain;" onerror="this.onerror=null; this.src='https://placehold.co/100x100/eeeeee/95a5a6?text=Image';">
-                            <div class="mol-link" style="font-size: 0.75em; margin-top: 4px;" title="${cleanM}" onclick="showMolDetailsModal('${m}', '${cleanM.replace(/'/g, "\\'")}')">${cleanM}</div>
-                        `;
-                        container.appendChild(molDiv);
-                    });
-                    
-                    section.appendChild(container);
-                    clustersList.appendChild(section);
+                let alphas = Object.keys(data.clusters).sort((a,b) => parseFloat(a) - parseFloat(b));
+                alphas.forEach(a => {
+                    sel1.options.add(new Option(a, a));
+                    sel2.options.add(new Option(a, a));
+                });
+                
+                // Mettre les extrêmes par défaut si dispo
+                if(alphas.length > 0) {
+                    sel1.value = alphas[alphas.length - 1]; // ex: 1.0
+                    sel2.value = alphas[0]; // ex: 0.0
                 }
             }
             
+            // Lancer la première comparaison
+            updateClusterComparison();
+            
             document.getElementById('molDetailsModal').style.display = 'block';
         }
+
+        function updateClusterComparison() {
+            if (!currentMolKeyForModal) return;
+            
+            const data = molDataDict[currentMolKeyForModal];
+            if (!data || !data.clusters) return;
+
+            const a1 = document.getElementById('compare-alpha-1').value;
+            const a2 = document.getElementById('compare-alpha-2').value;
+            
+            const mols1 = data.clusters[a1] || [];
+            const mols2 = data.clusters[a2] || [];
+            
+            const container1 = document.getElementById('compare-container-1');
+            const container2 = document.getElementById('compare-container-2');
+            
+            container1.innerHTML = '';
+            container2.innerHTML = '';
+            
+            // Fonction pour générer l'affichage visuel d'un cluster
+            const renderMols = (mols, targetContainer, otherMols) => {
+                mols.forEach(m => {
+                    let isCommon = otherMols.includes(m);
+                    let parts = m.split('_');
+                    let cleanM = parts.slice(3).join(' ').replace(/_/g, ' ');
+                    
+                    let molDiv = document.createElement('div');
+                    molDiv.className = "mol-item";
+                    molDiv.style.width = "110px";
+                    molDiv.style.padding = "5px";
+                    
+                    // Style conditionnel pour mettre en évidence les molécules communes
+                    if (isCommon) {
+                        molDiv.style.border = "2px solid #27ae60"; // Vert : en commun
+                        molDiv.style.backgroundColor = "#eafaf1";
+                    } else {
+                        molDiv.style.border = "1px solid #bdc3c7"; // Gris par défaut : unique
+                    }
+                    
+                    molDiv.innerHTML = `
+                        <img src="data/images/${m}.png" style="width: 100px; height: 100px; object-fit: contain;" onerror="this.onerror=null; this.src='https://placehold.co/100x100/eeeeee/95a5a6?text=Image';">
+                        <div class="mol-link" style="font-size: 0.75em; margin-top: 4px;" title="${cleanM}" onclick="showMolDetailsModal('${m}', '${cleanM.replace(/'/g, "\\'")}')">${cleanM}</div>
+                    `;
+                    targetContainer.appendChild(molDiv);
+                });
+            };
+            
+            // On dessine chaque colonne en vérifiant la présence dans l'autre
+            renderMols(mols1, container1, mols2);
+            renderMols(mols2, container2, mols1);
+        }
+
         function closeMolDetailsModal() {
             document.getElementById('molDetailsModal').style.display = 'none';
         }
@@ -172,12 +216,12 @@
     </div>
 
     <div id="molDetailsModal" class="modal">
-        <div class="modal-content" style="max-width: 850px;">
+        <div class="modal-content" style="max-width: 1000px;">
             <span class="close" onclick="closeMolDetailsModal()">&times;</span>
             <h2 id="md-title" style="text-transform: capitalize; border-bottom: 2px solid #3498db; margin-top:0; padding-bottom: 10px;">Détails Molécule</h2>
             
             <div style="display: flex; gap: 30px; align-items: flex-start; margin-top: 20px;">
-                <img id="md-img" src="" width="200" style="border: 1px solid #ddd; border-radius: 8px; padding: 10px; background: white;" onerror="this.onerror=null; this.src='https://placehold.co/200x200/eeeeee/95a5a6?text=Image+Indisponible';">
+                <img id="md-img" src="" width="180" style="border: 1px solid #ddd; border-radius: 8px; padding: 10px; background: white;" onerror="this.onerror=null; this.src='https://placehold.co/200x200/eeeeee/95a5a6?text=Image+Indisponible';">
                 
                 <div style="flex: 1;">
                     <h3 style="margin-top: 0; color: #2c3e50;">Informations Extraites</h3>
@@ -186,8 +230,26 @@
             </div>
 
             <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
-                <h3 style="color: #d35400; margin-top: 0;">Membres du cluster (selon &alpha;)</h3>
-                <div id="md-clusters-list" style="max-height: 450px; overflow-y: auto; background: #f9fbfc; padding: 15px; border-radius: 8px; border: 1px solid #e1e8ed;"></div>
+                <h3 style="color: #d35400; margin-top: 0; margin-bottom: 5px;">Comparateur de Clusters</h3>
+                <p style="font-size: 0.85em; color: #666; margin-top: 0;">Observez le comportement de la molécule cible dans les différents regroupements. <span style="display:inline-block; padding: 2px 8px; background:#eafaf1; border: 1px solid #27ae60; border-radius: 4px; color: #27ae60; font-weight: bold; margin-left: 10px;">Les molécules encadrées en vert</span> sont présentes dans les deux clusters simultanément.</p>
+                
+                <div style="display: flex; gap: 20px; margin-top: 15px;">
+                    <div style="flex: 1; background: #f9fbfc; padding: 15px; border-radius: 8px; border: 1px solid #e1e8ed;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px;">
+                            <strong>Cluster avec &alpha; = </strong>
+                            <select id="compare-alpha-1" onchange="updateClusterComparison()" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc; font-weight: bold;"></select>
+                        </div>
+                        <div id="compare-container-1" class="mol-container" style="margin-top: 15px; justify-content: flex-start; max-height: 400px; overflow-y: auto;"></div>
+                    </div>
+                    
+                    <div style="flex: 1; background: #f9fbfc; padding: 15px; border-radius: 8px; border: 1px solid #e1e8ed;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e67e22; padding-bottom: 10px;">
+                            <strong>Cluster avec &alpha; = </strong>
+                            <select id="compare-alpha-2" onchange="updateClusterComparison()" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc; font-weight: bold;"></select>
+                        </div>
+                        <div id="compare-container-2" class="mol-container" style="margin-top: 15px; justify-content: flex-start; max-height: 400px; overflow-y: auto;"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
