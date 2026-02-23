@@ -46,7 +46,9 @@ def load_cache():
     cache_groups = os.path.join(CACHE_DIR, "groups.json")
     cache_signatures = os.path.join(CACHE_DIR, "signatures.json")
     cache_matrix = os.path.join(CACHE_DIR, "sim_matrix_full.json")
+    cache_meta = os.path.join(CACHE_DIR, "metadata.json")
 
+    # On demande au minimum mols, groups et signatures pour considérer le cache valide
     if os.path.exists(cache_mols) and os.path.exists(cache_groups) and os.path.exists(cache_signatures):
         with open(cache_mols, "r") as f:
             all_mols = json.load(f)
@@ -60,12 +62,17 @@ def load_cache():
             with open(cache_matrix, "r") as f:
                 sim_matrix = json.load(f)
 
-        return all_mols, groups, signatures, sim_matrix
+        metadata = None
+        if os.path.exists(cache_meta):
+            with open(cache_meta, "r") as f:
+                metadata = json.load(f)
 
-    return None, None, None, None
+        return all_mols, groups, signatures, sim_matrix, metadata
+
+    return None, None, None, None, None
 
 
-def save_cache_base(all_mols, groups, signatures):
+def save_cache_base(all_mols, groups, signatures, metadata):
     """Sauvegarde les résultats de base."""
     with open(os.path.join(CACHE_DIR, "all_mols.json"), "w") as f:
         json.dump(all_mols, f)
@@ -73,6 +80,8 @@ def save_cache_base(all_mols, groups, signatures):
         json.dump(groups, f)
     with open(os.path.join(CACHE_DIR, "signatures.json"), "w") as f:
         json.dump(signatures, f)
+    with open(os.path.join(CACHE_DIR, "metadata.json"), "w") as f:
+        json.dump(metadata, f)
 
 
 def save_cache_matrix(sim_matrix):
@@ -128,10 +137,47 @@ def convert_mol_to_graph(mol_path, output_path):
             f.write(f"{bond.GetBeginAtomIdx()} {bond.GetEndAtomIdx()}\n")
 
 
+def extract_metadata_only(sdf_path):
+    """Extrait uniquement les métadonnées d'un SDF existant sans toucher aux fichiers .mol, .png, etc."""
+    print("[*] Récupération des métadonnées manquantes depuis le fichier SDF...")
+    suppl = Chem.SDMolSupplier(sdf_path)
+    metadata = {}
+
+    for i, mol in enumerate(tqdm(suppl, desc="Extraction Métadonnées", unit="mol")):
+        if mol is None:
+            continue
+
+        chebi_id = mol.GetProp("ChEBI ID") if mol.HasProp("ChEBI ID") else ""
+        chebi_name = mol.GetProp(
+            "ChEBI NAME") if mol.HasProp("ChEBI NAME") else ""
+        pubchem_cid = mol.GetProp("PUBCHEM_COMPOUND_CID") if mol.HasProp(
+            "PUBCHEM_COMPOUND_CID") else ""
+        pubchem_iupac = mol.GetProp("PUBCHEM_IUPAC_NAME") if mol.HasProp(
+            "PUBCHEM_IUPAC_NAME") else ""
+        sdf_name = mol.GetProp('_Name') if mol.HasProp('_Name') else ""
+
+        id_part = safe_filename(chebi_id) or safe_filename(
+            pubchem_cid) or safe_filename(sdf_name) or "UNKNOWN_ID"
+        name_part = safe_filename(chebi_name) or safe_filename(
+            pubchem_iupac) or safe_filename(sdf_name) or "UNKNOWN_NAME"
+
+        out_name = f"mol_{i}_{id_part}_{name_part}"
+
+        metadata[out_name] = {
+            "ChEBI ID": chebi_id,
+            "ChEBI NAME": chebi_name,
+            "PubChem CID": pubchem_cid,
+            "PubChem IUPAC": pubchem_iupac,
+            "SDF Name": sdf_name
+        }
+    return metadata
+
+
 def split_molecules(sdf_path):
     print("[*] Découpage des molécules...")
     suppl = Chem.SDMolSupplier(sdf_path)
     conversion_args = []
+    metadata = {}
 
     for i, mol in enumerate(tqdm(suppl, desc="Extraction SDF", unit="mol")):
         if mol is None:
@@ -156,6 +202,14 @@ def split_molecules(sdf_path):
         img_path = os.path.join(IMG_DIR, f"{out_name}.png")
         graph_path = os.path.join(GRAPH_DIR, f"{out_name}.graph")
 
+        metadata[out_name] = {
+            "ChEBI ID": chebi_id,
+            "ChEBI NAME": chebi_name,
+            "PubChem CID": pubchem_cid,
+            "PubChem IUPAC": pubchem_iupac,
+            "SDF Name": sdf_name
+        }
+
         with open(mol_path, "w") as f:
             f.write(Chem.MolToMolBlock(mol))
 
@@ -167,7 +221,7 @@ def split_molecules(sdf_path):
 
         conversion_args.append((mol_path, graph_path))
 
-    return conversion_args
+    return conversion_args, metadata
 
 
 def process_conversions(conversion_args):
@@ -276,7 +330,7 @@ def compute_similarity_matrix(all_molecules, compute3D=True):
     return matrix
 
 
-def generate_clustering(all_molecules, sim_matrix, alpha, num_clusters=23):
+def generate_clustering(all_molecules, sim_matrix, alpha, num_clusters=23, div_id="plotly_dendrogram"):
     n = len(all_molecules)
 
     if num_clusters > n:
@@ -322,7 +376,7 @@ def generate_clustering(all_molecules, sim_matrix, alpha, num_clusters=23):
     )
 
     dendrogram_html = fig.to_html(
-        full_html=False, include_plotlyjs='cdn', div_id="plotly_dendrogram")
+        full_html=False, include_plotlyjs='cdn', div_id=div_id)
     clusters_assign = fcluster(Z, num_clusters, criterion='maxclust')
     clusters_data = []
 
@@ -339,10 +393,6 @@ def generate_clustering(all_molecules, sim_matrix, alpha, num_clusters=23):
 
 
 def get_combined_matrix(sim_matrix, alpha, all_molecules):
-    """
-    Combine les scores 2D et 3D en une matrice contenant tous les détails 
-    pour ne pas casser le template HTML Jinja.
-    """
     combined = {}
     for m1 in all_molecules:
         combined[m1] = {}
@@ -358,7 +408,7 @@ def get_combined_matrix(sim_matrix, alpha, all_molecules):
     return combined
 
 
-def generate_report(groups, all_molecules, combined_matrix, clusters_data, dendrogram_html, alpha):
+def generate_report(groups, all_molecules, combined_matrix, clusters_data, dendrogram_html, alpha, multi_dendrograms, mol_data_json):
     print("[*] Génération du rapport HTML via Jinja2...")
     now = time.strftime("%d/%m/%Y %H:%M:%S")
     file_loader = FileSystemLoader('.')
@@ -374,7 +424,7 @@ def generate_report(groups, all_molecules, combined_matrix, clusters_data, dendr
     output = template.render(
         now=now, groups=groups, all_molecules=all_molecules,
         matrix=combined_matrix, clusters=clusters_data, dendrogram_html=dendrogram_html,
-        alpha=alpha
+        alpha=alpha, multi_dendrograms=multi_dendrograms, mol_data_json=mol_data_json
     )
 
     with open(REPORT_FILE, "w", encoding="utf-8") as f:
@@ -404,10 +454,8 @@ if __name__ == "__main__":
         print("[!] Erreur : La valeur de l'argument -a doit être comprise entre 0 et 1.")
         sys.exit(1)
 
-    if alpha_arg == 1:
-        compute3D = False
-    else:
-        compute3D = True
+    # On force le calcul 3D car nous allons générer des dendrogrammes pour différents alphas (dont 0.0)
+    compute3D = True
 
     global DATA_DIR, MOL_DIR, GRAPH_DIR, IMG_DIR, GROUPEMENT_DIR, REPORT_FILE, CACHE_DIR
     DATA_DIR = os.path.join(args.output, "data")
@@ -418,12 +466,34 @@ if __name__ == "__main__":
     CACHE_DIR = os.path.join(DATA_DIR, "cache")
     REPORT_FILE = os.path.join(args.output, "resultats.html")
 
-    all_mols, groups, signatures, sim_matrix = load_cache()
+    all_mols, groups, signatures, sim_matrix, metadata = load_cache()
 
     if all_mols is not None:
         print(f"[*] Cache de base trouvé dans '{
-              DATA_DIR}'. Réutilisation de l'extraction SDF et de l'analyse Nauty...")
+              DATA_DIR}'. Réutilisation de l'extraction et de l'analyse Nauty...")
         setup(force_clean=False)
+
+        # Gestion des métadonnées si elles manquent dans le cache
+        if metadata is None:
+            print(
+                "[*] Fichier metadata.json introuvable en cache. Génération exclusive des métadonnées...")
+            source_path = os.path.join(DATA_DIR, "source.sdf")
+
+            # Restaure source.sdf s'il a été supprimé par accident
+            if not os.path.exists(source_path):
+                if input_arg.startswith("http://") or input_arg.startswith("https://"):
+                    source_path = download_data(input_arg)
+                elif os.path.isfile(input_arg):
+                    shutil.copy(input_arg, source_path)
+
+            if os.path.exists(source_path):
+                metadata = extract_metadata_only(source_path)
+                with open(os.path.join(CACHE_DIR, "metadata.json"), "w") as f:
+                    json.dump(metadata, f)
+            else:
+                print(
+                    "[!] Impossible de trouver le fichier SDF source pour les métadonnées. Poursuite avec des données vides.")
+                metadata = {}
 
         if sim_matrix is None:
             print(
@@ -435,7 +505,8 @@ if __name__ == "__main__":
                 "[*] Matrice de similarité complète (2D/3D) trouvée en cache ! Calcul instantané.")
 
     else:
-        print(f"[*] Aucun cache trouvé dans '{DATA_DIR}'. Exécution totale...")
+        print(
+            f"[*] Aucun cache trouvé dans '{DATA_DIR}' ou cache incomplet. Exécution totale...")
         setup(force_clean=True)
 
         if input_arg.startswith("http://") or input_arg.startswith("https://"):
@@ -449,21 +520,49 @@ if __name__ == "__main__":
                   input_arg}' n'est ni une URL valide ni un fichier existant.")
             sys.exit(1)
 
-        conversion_tasks = split_molecules(source_path)
+        conversion_tasks, metadata = split_molecules(source_path)
         process_conversions(conversion_tasks)
 
         groups, all_mols, signatures = find_isomorphs()
-        save_cache_base(all_mols, groups, signatures)
+        save_cache_base(all_mols, groups, signatures, metadata)
 
         sim_matrix = compute_similarity_matrix(all_mols, compute3D)
         save_cache_matrix(sim_matrix)
 
-    clusters_dict, dendro_html = generate_clustering(
-        all_mols, sim_matrix, alpha=alpha_arg, num_clusters=nbrcluster)
+    # --- Génération pour alphas multiples ---
+    alphas_to_test = [0.0, 0.25, 0.5, 0.75, 1.0]
+    if alpha_arg not in alphas_to_test:
+        alphas_to_test.append(alpha_arg)
+    alphas_to_test.sort()
 
-    # On prépare une matrice simple avec l'alpha sélectionné pour ne pas casser ton Template HTML
+    multi_dendrograms = {}
+    mol_clusters = {m: {} for m in all_mols}
+
+    print("[*] Génération des dendrogrammes pour la comparaison d'alphas...")
+    for a in alphas_to_test:
+        c_data, d_html = generate_clustering(
+            all_mols, sim_matrix, alpha=a, num_clusters=nbrcluster, div_id=f"plotly_dendro_{str(a).replace('.', '_')}")
+        multi_dendrograms[str(a)] = d_html
+        for cluster in c_data:
+            mols_in_cluster = cluster['molecules']
+            for m in mols_in_cluster:
+                mol_clusters[m][str(a)] = mols_in_cluster
+
+    # Dendrogramme principal (celui de l'alpha choisi par l'utilisateur)
+    clusters_dict, dendro_html = generate_clustering(
+        all_mols, sim_matrix, alpha=alpha_arg, num_clusters=nbrcluster, div_id="plotly_dendrogram_main")
+
+    # Consolidation des données pour la modale
+    mol_data_combined = {}
+    for m in all_mols:
+        mol_data_combined[m] = {
+            "metadata": metadata.get(m, {}),
+            "clusters": mol_clusters.get(m, {})
+        }
+    mol_data_json = json.dumps(mol_data_combined)
+
     matrice_html = get_combined_matrix(sim_matrix, alpha_arg, all_mols)
 
     save_groups_json(signatures=signatures)
-    generate_report(groups, all_mols, matrice_html,
-                    clusters_dict, dendro_html, alpha_arg)
+    generate_report(groups, all_mols, matrice_html, clusters_dict,
+                    dendro_html, alpha_arg, multi_dendrograms, mol_data_json)

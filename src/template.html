@@ -13,8 +13,14 @@
         .mol-container { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
         .mol-item { width: 200px; background: white; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .mol-item img { width: 180px; height: 180px; object-fit: contain; }
-        /* text-transform: capitalize ajoute une majuscule au début des mots */
-        .mol-link { display: block; margin-top: 8px; font-size: 0.8em; color: #2980b9; word-break: break-word; text-transform: capitalize; font-weight: bold; }
+        
+        .mol-link { 
+            display: block; margin-top: 8px; font-size: 0.8em; color: #2980b9; 
+            word-break: break-word; text-transform: capitalize; font-weight: bold; 
+            cursor: pointer; text-decoration: underline; transition: color 0.2s;
+        }
+        .mol-link:hover { color: #1abc9c; }
+        
         .group-card { background: white; padding: 20px; margin-top: 20px; border-left: 5px solid #27ae60; border-radius: 5px; }
 
         /* Matrice */
@@ -36,10 +42,11 @@
 
         /* MODAL (Popup) */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(2px); }
-        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 900px; border-radius: 10px; position: relative; box-shadow: 0 4px 8px rgba(0,0,0,0.2); animation: fadeIn 0.3s; }
+        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; border-radius: 10px; position: relative; box-shadow: 0 4px 8px rgba(0,0,0,0.2); animation: fadeIn 0.3s; }
         @keyframes fadeIn { from {opacity: 0; transform: translateY(-20px);} to {opacity: 1; transform: translateY(0);} }
         .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
         .close:hover { color: black; }
+        
         .comparison-container { display: flex; justify-content: space-around; align-items: center; margin-top: 20px; flex-wrap: wrap; }
         .comp-item { width: 45%; text-align: center; }
         .comp-item img { width: 100%; max-width: 300px; border: 1px solid #eee; border-radius: 8px; padding: 10px; background: white; }
@@ -49,6 +56,8 @@
         .comp-details { font-size: 0.9em; color: #7f8c8d; border-top: 1px solid #bdc3c7; padding-top: 10px; display: inline-block; }
     </style>
     <script>
+        const molDataDict = {{ mol_data_json | safe }};
+
         function showModal(name1, name2, score, sim2d, sim3d, alpha, img1, img2) {
             document.getElementById('m-name1').innerText = name1;
             document.getElementById('m-name2').innerText = name2;
@@ -63,10 +72,72 @@
         function closeModal() {
             document.getElementById('myModal').style.display = "none";
         }
-        window.onclick = function(event) {
-            if (event.target == document.getElementById('myModal')) {
-                closeModal();
+
+        function showMolDetailsModal(molKey, molCleanName) {
+            document.getElementById('md-title').innerText = molCleanName;
+            document.getElementById('md-img').src = 'data/images/' + molKey + '.png';
+            
+            const data = molDataDict[molKey];
+            const infoList = document.getElementById('md-info-list');
+            const clustersList = document.getElementById('md-clusters-list');
+            
+            infoList.innerHTML = '';
+            clustersList.innerHTML = '';
+            
+            if(data && data.metadata) {
+                for(const [k, v] of Object.entries(data.metadata)) {
+                    if(v && v.trim() !== '') {
+                        let li = document.createElement('li');
+                        li.innerHTML = `<strong>${k} :</strong> ${v}`;
+                        infoList.appendChild(li);
+                    }
+                }
             }
+            if(infoList.children.length === 0) {
+                infoList.innerHTML = '<li>Aucune métadonnée disponible.</li>';
+            }
+            
+            if(data && data.clusters) {
+                for(const [alpha, mols] of Object.entries(data.clusters)) {
+                    let section = document.createElement('div');
+                    section.style.marginBottom = "20px";
+                    section.innerHTML = `<strong style="font-size: 1.1em; color: #d35400;">&alpha; = ${alpha}</strong> <span style="font-size:0.85em; color:#7f8c8d;">(${mols.length} molécule(s) dans le cluster)</span>`;
+                    
+                    let container = document.createElement('div');
+                    container.className = "mol-container";
+                    container.style.gap = "10px";
+                    container.style.marginTop = "10px";
+                    container.style.justifyContent = "flex-start";
+                    
+                    mols.forEach(m => {
+                        let parts = m.split('_');
+                        let cleanM = parts.slice(3).join(' ').replace(/_/g, ' ');
+                        let molDiv = document.createElement('div');
+                        molDiv.className = "mol-item";
+                        molDiv.style.width = "110px";
+                        molDiv.style.padding = "5px";
+                        
+                        molDiv.innerHTML = `
+                            <img src="data/images/${m}.png" style="width: 100px; height: 100px; object-fit: contain;" onerror="this.onerror=null; this.src='https://placehold.co/100x100/eeeeee/95a5a6?text=Image';">
+                            <div class="mol-link" style="font-size: 0.75em; margin-top: 4px;" title="${cleanM}" onclick="showMolDetailsModal('${m}', '${cleanM.replace(/'/g, "\\'")}')">${cleanM}</div>
+                        `;
+                        container.appendChild(molDiv);
+                    });
+                    
+                    section.appendChild(container);
+                    clustersList.appendChild(section);
+                }
+            }
+            
+            document.getElementById('molDetailsModal').style.display = 'block';
+        }
+        function closeMolDetailsModal() {
+            document.getElementById('molDetailsModal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('myModal')) closeModal();
+            if (event.target == document.getElementById('molDetailsModal')) closeMolDetailsModal();
         }
     </script>
 </head>
@@ -74,7 +145,7 @@
     <h1>Rapport d'analyse moléculaire</h1>
     
     <div id="myModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 900px;">
             <span class="close" onclick="closeModal()">&times;</span>
             <h2 style="text-align:center; border:none; margin-top:0;">Comparaison Détaillée</h2>
             <div class="comp-score-box">
@@ -96,6 +167,27 @@
                     <img id="m-img2" src="" onerror="this.onerror=null; this.src='https://placehold.co/300x300/eeeeee/95a5a6?text=Image+Indisponible';">
                     <div id="m-name2" class="comp-name">Nom 2</div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="molDetailsModal" class="modal">
+        <div class="modal-content" style="max-width: 850px;">
+            <span class="close" onclick="closeMolDetailsModal()">&times;</span>
+            <h2 id="md-title" style="text-transform: capitalize; border-bottom: 2px solid #3498db; margin-top:0; padding-bottom: 10px;">Détails Molécule</h2>
+            
+            <div style="display: flex; gap: 30px; align-items: flex-start; margin-top: 20px;">
+                <img id="md-img" src="" width="200" style="border: 1px solid #ddd; border-radius: 8px; padding: 10px; background: white;" onerror="this.onerror=null; this.src='https://placehold.co/200x200/eeeeee/95a5a6?text=Image+Indisponible';">
+                
+                <div style="flex: 1;">
+                    <h3 style="margin-top: 0; color: #2c3e50;">Informations Extraites</h3>
+                    <ul id="md-info-list" style="line-height: 1.6; padding-left: 20px; font-size: 0.9em;"></ul>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                <h3 style="color: #d35400; margin-top: 0;">Membres du cluster (selon &alpha;)</h3>
+                <div id="md-clusters-list" style="max-height: 450px; overflow-y: auto; background: #f9fbfc; padding: 15px; border-radius: 8px; border: 1px solid #e1e8ed;"></div>
             </div>
         </div>
     </div>
@@ -157,7 +249,7 @@
             {% set clean_m = m.split('_', 3)[-1] | replace('_', ' ') %}
             <div class="mol-item">
                 <img src="data/images/{{ m }}.png" onerror="this.onerror=null; this.src='https://placehold.co/180x180/eeeeee/95a5a6?text=Image\\nIndisponible';">
-                <div class="mol-link" title="{{ clean_m }}">{{ clean_m }}</div>
+                <div class="mol-link" title="{{ clean_m }}" onclick="showMolDetailsModal('{{ m }}', '{{ clean_m|replace("'", "\\'") }}')">{{ clean_m }}</div>
             </div>
             {% endfor %}
         </div>
@@ -171,15 +263,15 @@
         {% set clean_m = m.split('_', 3)[-1] | replace('_', ' ') %}
         <div class="mol-item">
             <img src="data/images/{{ m }}.png" onerror="this.onerror=null; this.src='https://placehold.co/180x180/eeeeee/95a5a6?text=Image\\nIndisponible';">
-            <div class="mol-link" title="{{ clean_m }}">{{ clean_m }}</div>
+            <div class="mol-link" title="{{ clean_m }}" onclick="showMolDetailsModal('{{ m }}', '{{ clean_m|replace("'", "\\'") }}')">{{ clean_m }}</div>
         </div>
         {% endfor %}
     </div>
-<hr>
+    <hr>
 
-{% if clusters %}
+    {% if clusters %}
     <h2>🧬 Clusters générés automatiquement (Seuil de distance)</h2>
-    <p><i>Regroupement des molécules basé sur l'arbre hiérarchique (Dendrogramme).</i></p>
+    <p><i>Regroupement des molécules basé sur l'arbre hiérarchique (Dendrogramme principal pour &alpha;={{ alpha }}).</i></p>
     
     {% for cluster in clusters %}
     <div class="group-card" style="border-left-color: #e67e22;">
@@ -195,7 +287,7 @@
             {% set clean_m = m.split('_', 3)[-1] | replace('_', ' ') %}
             <div class="mol-item" style="border: 1px solid #f39c12;">
                 <img src="data/images/{{ m }}.png" onerror="this.onerror=null; this.src='https://placehold.co/180x180/eeeeee/95a5a6?text=Image\\nIndisponible';">
-                <div class="mol-link" title="{{ clean_m }}">{{ clean_m }}</div>
+                <div class="mol-link" title="{{ clean_m }}" onclick="showMolDetailsModal('{{ m }}', '{{ clean_m|replace("'", "\\'") }}')">{{ clean_m }}</div>
             </div>
             {% endfor %}
         </div>
@@ -203,52 +295,63 @@
     {% endfor %}
     {% endif %}
 
-<h2>Analyse Hiérarchique (Dendrogramme Interactif)</h2>
+    <h2>Analyse Hiérarchique (Dendrogramme Interactif)</h2>
 
-<div style="display: flex; gap: 20px; align-items: flex-start; margin-bottom: 40px;">
-    
-    <div style="flex: 3; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background-color: white;">
-        {{ dendrogram_html | safe }}
-    </div>
-    
-    <div style="flex: 1; text-align: center; border: 1px solid #007bff; border-radius: 8px; padding: 20px; background-color: #f8fbff; position: sticky; top: 20px;">
-        <h3 style="margin-top: 0; color: #007bff;">Visualisation</h3>
-        <p style="font-size: 0.85em; color: #666;">Cliquez sur l'extrémité d'une branche (sur la ligne de la molécule au niveau 0) pour l'afficher ici.</p>
+    <div style="display: flex; gap: 20px; align-items: flex-start; margin-bottom: 40px;">
+        <div style="flex: 3; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background-color: white;">
+            {{ dendrogram_html | safe }}
+        </div>
         
-        <div id="mol-preview-container" style="display: none; margin-top: 20px;">
-            <h4 id="mol-name" style="word-wrap: break-word; color: #333; margin-bottom: 15px; text-transform: capitalize;"></h4>
-            <img id="mol-img" src="" onerror="this.onerror=null; this.src='https://placehold.co/180x180/eeeeee/95a5a6?text=Image\\nIndisponible';" alt="Molecule" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; background: white; padding: 10px;">
+        <div style="flex: 1; text-align: center; border: 1px solid #007bff; border-radius: 8px; padding: 20px; background-color: #f8fbff; position: sticky; top: 20px;">
+            <h3 style="margin-top: 0; color: #007bff;">Visualisation</h3>
+            <p style="font-size: 0.85em; color: #666;">Cliquez sur l'extrémité d'une branche (sur la ligne de la molécule au niveau 0) pour l'afficher ici.</p>
+            
+            <div id="mol-preview-container" style="display: none; margin-top: 20px;">
+                <h4 id="mol-name" style="word-wrap: break-word; color: #333; margin-bottom: 15px; text-transform: capitalize;"></h4>
+                <img id="mol-img" src="" onerror="this.onerror=null; this.src='https://placehold.co/180x180/eeeeee/95a5a6?text=Image\\nIndisponible';" alt="Molecule" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; background: white; padding: 10px;">
+            </div>
         </div>
     </div>
-</div>
 
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    var plotDiv = document.getElementById('plotly_dendrogram');
-    
-    if (plotDiv) {
-        plotDiv.on('plotly_click', function(data) {
-            var point = data.points[0];
-            
-            if (point.y === 0) { 
-                var tickvals = plotDiv.layout.xaxis.tickvals;
-                var ticktext = plotDiv.layout.xaxis.ticktext;
-                var idx = tickvals.indexOf(point.x);
+    <hr>
+    <h2>📈 Comparaison des Dendrogrammes (Différents &alpha;)</h2>
+    <p style="margin-bottom: 30px;"><i>Évolution du clustering en fonction du poids accordé à la similarité 2D vs 3D. <br>
+    Un &alpha; = 1 correspond à une analyse basée 100% sur l'empreinte 2D, un &alpha; = 0 correspond à une analyse 100% sur la forme 3D.</i></p>
+
+    {% for a, d_html in multi_dendrograms.items() %}
+    <div class="group-card" style="border-left-color: #9b59b6; margin-bottom: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+        <h3 style="color: #8e44ad; margin-top: 0;">Clustering pour &alpha; = {{ a }}</h3>
+        <div style="border: 1px solid #eee; border-radius: 8px; overflow: hidden; background-color: white;">
+            {{ d_html | safe }}
+        </div>
+    </div>
+    {% endfor %}
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var plotDiv = document.getElementById('plotly_dendrogram_main');
+        
+        if (plotDiv) {
+            plotDiv.on('plotly_click', function(data) {
+                var point = data.points[0];
                 
-                if (idx !== -1) {
-                    var molFileName = ticktext[idx];
+                if (point.y === 0) { 
+                    var tickvals = plotDiv.layout.xaxis.tickvals;
+                    var ticktext = plotDiv.layout.xaxis.ticktext;
+                    var idx = tickvals.indexOf(point.x);
                     
-                    // Nettoie le nom côté Javascript pour l'affichage
-                    var cleanName = molFileName.split('_').slice(3).join(' ');
-                    
-                    document.getElementById('mol-name').innerText = cleanName;
-                    document.getElementById('mol-img').src = 'data/images/' + molFileName + '.png';
-                    document.getElementById('mol-preview-container').style.display = 'block';
+                    if (idx !== -1) {
+                        var molFileName = ticktext[idx];
+                        var cleanName = molFileName.split('_').slice(3).join(' ');
+                        
+                        document.getElementById('mol-name').innerText = cleanName;
+                        document.getElementById('mol-img').src = 'data/images/' + molFileName + '.png';
+                        document.getElementById('mol-preview-container').style.display = 'block';
+                    }
                 }
-            }
-        });
-    }
-});
-</script>
+            });
+        }
+    });
+    </script>
 </body>
 </html>
