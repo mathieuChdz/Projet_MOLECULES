@@ -48,7 +48,6 @@ def load_cache():
     cache_matrix = os.path.join(CACHE_DIR, "sim_matrix_full.json")
     cache_meta = os.path.join(CACHE_DIR, "metadata.json")
 
-    # On demande au minimum mols, groups et signatures pour considérer le cache valide
     if os.path.exists(cache_mols) and os.path.exists(cache_groups) and os.path.exists(cache_signatures):
         with open(cache_mols, "r") as f:
             all_mols = json.load(f)
@@ -454,7 +453,6 @@ if __name__ == "__main__":
         print("[!] Erreur : La valeur de l'argument -a doit être comprise entre 0 et 1.")
         sys.exit(1)
 
-    # On force le calcul 3D car nous allons générer des dendrogrammes pour différents alphas (dont 0.0)
     compute3D = True
 
     global DATA_DIR, MOL_DIR, GRAPH_DIR, IMG_DIR, GROUPEMENT_DIR, REPORT_FILE, CACHE_DIR
@@ -473,13 +471,11 @@ if __name__ == "__main__":
               DATA_DIR}'. Réutilisation de l'extraction et de l'analyse Nauty...")
         setup(force_clean=False)
 
-        # Gestion des métadonnées si elles manquent dans le cache
         if metadata is None:
             print(
                 "[*] Fichier metadata.json introuvable en cache. Génération exclusive des métadonnées...")
             source_path = os.path.join(DATA_DIR, "source.sdf")
 
-            # Restaure source.sdf s'il a été supprimé par accident
             if not os.path.exists(source_path):
                 if input_arg.startswith("http://") or input_arg.startswith("https://"):
                     source_path = download_data(input_arg)
@@ -529,7 +525,6 @@ if __name__ == "__main__":
         sim_matrix = compute_similarity_matrix(all_mols, compute3D)
         save_cache_matrix(sim_matrix)
 
-    # --- Génération pour alphas multiples ---
     alphas_to_test = [0.0, 0.25, 0.5, 0.75, 1.0]
     if alpha_arg not in alphas_to_test:
         alphas_to_test.append(alpha_arg)
@@ -548,11 +543,9 @@ if __name__ == "__main__":
             for m in mols_in_cluster:
                 mol_clusters[m][str(a)] = mols_in_cluster
 
-    # Dendrogramme principal (celui de l'alpha choisi par l'utilisateur)
     clusters_dict, dendro_html = generate_clustering(
         all_mols, sim_matrix, alpha=alpha_arg, num_clusters=nbrcluster, div_id="plotly_dendrogram_main")
 
-    # Consolidation des données pour la modale
     mol_data_combined = {}
     for m in all_mols:
         mol_data_combined[m] = {
