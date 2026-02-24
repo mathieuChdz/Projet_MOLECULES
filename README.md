@@ -9,7 +9,8 @@ Ce projet permet de récupérer des bases de données chimiques (SDF), d'en extr
 ### 1. Prérequis communs
 
 * **Python 3.10+**
-* **GCC** 
+* **GCC**
+* **Curl**
 * **Python lib** : rdkit scipy plotly tqdm jinja2 requests
 ---
 
