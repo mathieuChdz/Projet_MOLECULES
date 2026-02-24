@@ -1,0 +1,38 @@
+####################################
+16666, (1R,2S,5R)-(-)-Menthol
+165675, (1S,2R,5S)-(+)-Menthol
+6432468, (1R,2R,5S)-(-)-Isomenthol
+45056, (1S,2S,5R)-(+)-Isomenthol
+439263, (1R,2S,5S)-(+)-Néomenthol
+6566020, (1S,2R,5R)-(-)-Neomenthol
+19244, (1R,2R,5R)-(+)-Neoisomenthol
+1715097, (1S,2S,5S)-(-)-Neoisomenthol
+##################################
+444305, Acide L-(+)-tartrique
+439655, Acide D-(-)-tartrique
+444304, Acide méso-tartrique
+444305, L-(+)-Tartaric acid
+##################################
+9294, (1R,2S)-(-)-Éphédrine
+7028, (1S,2S)-(+)-Pseudoéphédrine
+###################################
+75792, (R)-(+)-Thalidomide
+92142, (S)-(-)-Thalidomide
+#####################################
+440917, (R)-(+)-Limonène
+439250, (S)-(-)-Limonène
+###################################
+439570, (R)-(-)-Carvone
+16724, (S)-(+)-Carvone
+####################################
+54670067, Acide L-ascorbique
+54690394, Acide D-ascorbique
+54675810, Acide D-Erythorbic
+#####################################
+5826, D-Amphetamine 
+32893, Lévoamphétamine
+#####################################
+5959, Chloramphénicol D-thréo (1R,2R)
+92099, Chloramphénicol L-thréo (1S,2S)
+146034, Chloramphénicol D-érythro (1S,2R)
+146033, Chloramphénicol L-érythro (1R,2S)

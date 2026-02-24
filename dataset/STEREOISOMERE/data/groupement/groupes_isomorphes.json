@@ -1,0 +1,92 @@
+{
+  "date": "23/02/2026 22:58:57",
+  "molecules_analysees": 29,
+  "nombre_total_groupes": 10,
+  "groupes_isomorphes": [
+    {
+      "id": 1,
+      "taille": 8,
+      "molecules": [
+        "mol_0_16666_1R2S5R-5-methyl-2-propan-2-ylcyclohexan-1-ol",
+        "mol_1_165675_1S2R5S-5-methyl-2-propan-2-ylcyclohexan-1-ol",
+        "mol_2_6432468_1R2S5S-5-methyl-2-propan-2-ylcyclohexan-1-ol",
+        "mol_3_45056_1S2R5R-5-methyl-2-propan-2-ylcyclohexan-1-ol",
+        "mol_4_439263_1S2S5R-5-methyl-2-propan-2-ylcyclohexan-1-ol",
+        "mol_5_6566020_1R2R5S-5-methyl-2-propan-2-ylcyclohexan-1-ol",
+        "mol_6_19244_1R2R5R-5-methyl-2-propan-2-ylcyclohexan-1-ol",
+        "mol_7_1715097_1S2S5S-5-methyl-2-propan-2-ylcyclohexan-1-ol"
+      ]
+    },
+    {
+      "id": 2,
+      "taille": 4,
+      "molecules": [
+        "mol_25_5959_22-dichloro-N-1R2R-13-dihydroxy-1-4-nitrophenylpropan-2-ylacetamide",
+        "mol_26_92099_22-dichloro-N-1S2S-13-dihydroxy-1-4-nitrophenylpropan-2-ylacetamide",
+        "mol_27_146034_22-dichloro-N-1S2R-13-dihydroxy-1-4-nitrophenylpropan-2-ylacetamide",
+        "mol_28_146033_22-dichloro-N-1R2S-13-dihydroxy-1-4-nitrophenylpropan-2-ylacetamide"
+      ]
+    },
+    {
+      "id": 3,
+      "taille": 3,
+      "molecules": [
+        "mol_11_444305_2R3R-23-dihydroxybutanedioic_acid",
+        "mol_8_444305_2R3R-23-dihydroxybutanedioic_acid",
+        "mol_9_439655_2S3S-23-dihydroxybutanedioic_acid"
+      ]
+    },
+    {
+      "id": 4,
+      "taille": 3,
+      "molecules": [
+        "mol_20_54670067_2R-2-1S-12-dihydroxyethyl-34-dihydroxy-2H-furan-5-one",
+        "mol_21_54690394_2S-2-1R-12-dihydroxyethyl-34-dihydroxy-2H-furan-5-one",
+        "mol_22_54675810_2R-2-1R-12-dihydroxyethyl-34-dihydroxy-2H-furan-5-one"
+      ]
+    },
+    {
+      "id": 5,
+      "taille": 2,
+      "molecules": [
+        "mol_12_9294_1R2S-2-methylamino-1-phenylpropan-1-ol",
+        "mol_13_7028_1S2S-2-methylamino-1-phenylpropan-1-ol"
+      ]
+    },
+    {
+      "id": 6,
+      "taille": 2,
+      "molecules": [
+        "mol_14_75792_2-3R-26-dioxopiperidin-3-ylisoindole-13-dione",
+        "mol_15_92142_2-3S-26-dioxopiperidin-3-ylisoindole-13-dione"
+      ]
+    },
+    {
+      "id": 7,
+      "taille": 2,
+      "molecules": [
+        "mol_16_440917_4R-1-methyl-4-prop-1-en-2-ylcyclohexene",
+        "mol_17_439250_4S-1-methyl-4-prop-1-en-2-ylcyclohexene"
+      ]
+    },
+    {
+      "id": 8,
+      "taille": 2,
+      "molecules": [
+        "mol_18_439570_5R-2-methyl-5-prop-1-en-2-ylcyclohex-2-en-1-one",
+        "mol_19_16724_5S-2-methyl-5-prop-1-en-2-ylcyclohex-2-en-1-one"
+      ]
+    },
+    {
+      "id": 9,
+      "taille": 2,
+      "molecules": [
+        "mol_23_5826_2S-1-phenylpropan-2-amine",
+        "mol_24_32893_2R-1-phenylpropan-2-amine"
+      ]
+    }
+  ],
+  "singletons": [
+    "mol_10_444304_3-2-3-2-carboxyethyl-5-4-ethyl-3-methyl-5-oxopyrrol-2-ylmethyl-4-methyl-1H-pyrro"
+  ]
+}
