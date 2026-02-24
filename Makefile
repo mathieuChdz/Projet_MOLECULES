@@ -47,6 +47,7 @@ run: $(EXEC)
 		echo "Usage 3 : make run DATABASE='dataset.txt' HC=3 [A=0.9] [OUTPUT='dossier']"; \
 		exit 1; \
 	fi
+	@$(PYTHON) -c "import webbrowser, os; out = '$(OUTPUT)' if '$(OUTPUT)' else 'data'; webbrowser.open('file://' + os.path.realpath(out + '/resultats.html'))"
 
 $(EXEC): $(SRC) $(NAUTY_LIB)
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(LDFLAGS)
