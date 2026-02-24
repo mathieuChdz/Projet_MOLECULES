@@ -10,44 +10,32 @@ Ce projet permet de récupérer des bases de données chimiques (SDF), d'en extr
 
 * **Python 3.10+**
 * **GCC** 
-* **Nauty** : La bibliothèque doit être présente dans le dossier `./nauty` (avec le fichier `nauty.a`).
-
-### 2. Installation des dépendances Python
-
-Ouvrez votre terminal (MINGW64 sur Windows ou Terminal sur Mac) :
-
-```bash
-pip install -r requirements.txt
-
-```
-
+* **Python lib** : rdkit scipy plotly tqdm jinja2 requests
 ---
 
 ## Guide d'utilisation
 
 Le projet est entièrement automatisé via un `Makefile`.
 
-### Sur Windows (via MINGW64 / MSYS2)
-
-```bash
-# 1. Nettoyer les anciens tests
-mingw32-make clean
-
-# 2. Compiler et lancer le pipeline avec un url exemple https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/1983,1983,2519,5793/SDF
-mingw32-make run URL="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/1983,1983,2519,5793/SDF"
-
-```
-
 ### Sur macOS / Linux
 
 ```bash
-# 1. Nettoyer les anciens tests
+# Nettoie les fichiers compiler
 make clean
 
-# 2. Compiler et lancer le pipeline avec un url exemple https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/1983,1983,2519,5793/SDF
-make run URL="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/1983,1983,2519,5793/SDF"
+# Lance le programme télécharge la bibliotheque Nauty et la compile si elle n'est pas présente
+make run URL="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/1983,1983,2519,5793/SDF" A=0.5 HC=3 OUTPUT="output_folder"
+
+make run DATABASE="dataset/data.txt" A=0.5 HC=3 OUTPUT="output_folder"
+
+make run SDF_FILE="molecules.sdf" A=0.5 HC=3 OUTPUT="output_folder"
 
 ```
+* **URL** spécifie un URL pour récuperer un SDF en ligne
+* **DATABASE** spécifie un fichier texte database contenant des chebi pour récuperer un SDF
+* **SDF_FILE** spécifie le chemin vers un SDF
+* **A** paramètre alpha ratio entre distance 2D et distance 3D
+* **HC** paramètre spécifie le nombre de cluster pour le hiéarchical clustering
 
 ---
 
@@ -122,15 +110,17 @@ Cette approche transforme un problème de comparaison combinatoire complexe en u
 * `process_mol.py` : Convertisseur Molécule -> Graphe.
 * `check_iso.c` : Calcul utilisant nauty.
 * `Makefile` : Scripts d'automatisation.
-* `data/` : Stockage des molécules et des graphes.
-* `nauty/` : Bibliothèque nauty de Brendan McKay.
+* `dataset/` : Stockage des dataset d'importance.
 
----
+## Ensemble des commandes pour lancer les différents datasets
 
-## A essayer
+```Bash
+make run DATABASE='dataset/dataset_500.txt' A=0.5 HC=23 OUTPUT='dataset/MOL_500_FIN'
 
-```bash
-mingw32-make run URL="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50/SDF"
+make run DATABASE='dataset/dataset_poison.txt' A=0.5 HC=13 OUTPUT='dataset/MOL_POISON'
 
+make run DATABASE='dataset/Stereoisomere.txt' A=0.5 HC=9 OUTPUT='dataset/STEREOISOMERE'
+
+make run URL="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50/SDF" A=0.5 HC=9 OUTPUT='dataset/random_mol'
 ```
 ---
